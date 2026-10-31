@@ -141,7 +141,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'app/:id',
     name: 'app-detail',
-    component: Stub,
+    component: () => import('@/views/app/AppDetailView.vue'),
     meta: {
       title: '应用详情',
       module: '应用中心',
@@ -188,7 +188,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'knowledge/:id/detail',
     name: 'knowledge-detail',
-    component: Stub,
+    component: () => import('@/views/knowledge/KnowledgeDetailView.vue'),
     meta: {
       title: '知识库详情',
       module: '知识库',
@@ -244,7 +244,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'agent/:id/detail',
     name: 'agent-detail',
-    component: Stub,
+    component: () => import('@/views/agent/AgentDetailView.vue'),
     meta: {
       title: 'Agent 详情',
       module: 'Agent',
@@ -427,7 +427,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'dataset/:id/detail',
     name: 'dataset-detail',
-    component: Stub,
+    component: () => import('@/views/dataset/DatasetDetailView.vue'),
     meta: {
       title: '数据集详情',
       module: '数据集',
@@ -479,7 +479,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'tool/:id/detail',
     name: 'tool-detail',
-    component: Stub,
+    component: () => import('@/views/tool/ToolDetailView.vue'),
     meta: {
       title: '工具详情',
       module: '工具',
@@ -509,7 +509,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'providers',
     name: 'providers',
-    component: Stub,
+    component: () => import('@/views/providers/ProviderListView.vue'),
     meta: {
       title: '模型提供商',
       module: '模型厂商',
@@ -527,7 +527,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'providers/:id',
     name: 'provider-detail',
-    component: Stub,
+    component: () => import('@/views/providers/ProviderDetailView.vue'),
     meta: {
       title: '模型厂商详情',
       module: '模型厂商',

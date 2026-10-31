@@ -14,7 +14,7 @@ import {
 } from '@/components/ui'
 import type { RowAction, TableColumn } from '@/components/ui'
 import { knowledgeBasesApi } from '@/api/resources'
-import { apiPost } from '@/api/http'
+import { reindexKnowledgeBase } from '@/api/knowledge'
 import type { KnowledgeBaseDto } from '@/api/types'
 import { useListQuery } from '@/composables/useListQuery'
 import { toast } from '@/composables/useToast'
@@ -68,7 +68,7 @@ async function onRowAction(key: string, row: KnowledgeBaseDto): Promise<void> {
   if (key === 'reindex') {
     try {
       // 后端会用后台任务把进度从 5% 推到 100%，列表刷新几次就能看到它动
-      await apiPost<KnowledgeBaseDto>(`/knowledge-bases/${row.id}/reindex`)
+      await reindexKnowledgeBase(row.id)
       toast('已开始重建索引', { description: `${row.name} 的进度会自动推进` })
       await reload()
     } catch (cause) {
