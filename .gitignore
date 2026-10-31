@@ -27,3 +27,5 @@ pnpm-debug.log*
 
 # 参考素材不进版本库（体积大，且是设计源文件）
 _ref/
+_ref/*.png
+_ref/*.md
