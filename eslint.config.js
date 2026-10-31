@@ -19,9 +19,19 @@ export default tseslint.config(
     }
   },
   {
+    // TS 本身就会查未定义标识符（window / Event / HTMLSelectElement 由 DOM lib 提供），
+    // 在 TS 项目里再开 no-undef 只会制造噪音 —— 这也是 typescript-eslint 的官方建议
+    files: ['**/*.{ts,vue}'],
+    rules: {
+      'no-undef': 'off'
+    }
+  },
+  {
     rules: {
       // 页面级组件用单名（LoginView / AppShell）不符合多词规则，关掉
       'vue/multi-word-component-names': 'off',
+      // 可选 prop 用 `?` 标注即可，不必再写默认值（TS 类型已表达清楚）
+      'vue/require-default-prop': 'off',
       // 属性顺序交给 prettier 与人工判断
       'vue/attributes-order': 'off',
       'vue/max-attributes-per-line': 'off',

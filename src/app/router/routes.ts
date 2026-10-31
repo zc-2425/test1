@@ -13,6 +13,18 @@ const Stub = () => import('@/views/stubs/StubView.vue')
 
 /** 全部业务页（挂在 AppShell 之下） */
 export const shellRoutes: RouteRecordRaw[] = [
+  // ===== 开发工具（不属于 62 画布的 31 条业务路由，仅本地调试用）=====
+  {
+    path: 'dev/ui',
+    name: 'dev-ui',
+    component: () => import('@/views/dev/ComponentPlayground.vue'),
+    meta: {
+      title: '组件预览',
+      subtitle: 'P3 基础组件的视觉基线，数据走真实接口',
+      module: '开发工具',
+      phase: 'P3'
+    }
+  },
   // ================= 探索 =================
   {
     path: 'explore',

@@ -145,3 +145,24 @@ def test_meta_overview(client: TestClient) -> None:
     assert body["counts"]["workflows"] == 8
     assert body["counts"]["plugins"] == 12
     assert body["explore"]["totalUsage"] > 0
+
+
+def test_sort_order_both_directions(client: TestClient) -> None:
+    asc = client.get(
+        "/api/workflows", params={"sort": "node_count", "order": "asc", "size": 5}
+    ).json()
+    asc_values = [item["node_count"] for item in asc["items"]]
+    assert asc_values == sorted(asc_values)
+
+    desc = client.get(
+        "/api/workflows", params={"sort": "node_count", "order": "desc", "size": 5}
+    ).json()
+    desc_values = [item["node_count"] for item in desc["items"]]
+    assert desc_values == sorted(desc_values, reverse=True)
+
+    # 非法方向由 Pydantic 拦在 422，不会静默忽略
+    assert client.get("/api/workflows", params={"order": "sideways"}).status_code == 422
+
+    # 不存在的排序字段回落到 id，不报 500
+    fallback = client.get("/api/workflows", params={"sort": "not_a_field"}).json()
+    assert fallback["total"] == 8

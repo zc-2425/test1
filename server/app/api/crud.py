@@ -66,13 +66,15 @@ class _Crud(Generic[ModelT]):
             stmt = stmt.where(getattr(self.model, self.type_field) == type_)
         return stmt
 
-    def _order(self, stmt, sort: str | None):
+    def _order(self, stmt, sort: str | None, order: str | None):
         field_name = sort or self.order_field
         if not hasattr(self.model, field_name):
             field_name = "id"
         column = getattr(self.model, field_name)
-        # created_at 可能为空（数据集允许空值），用 id 兜底避免 NULL 排前面
-        return stmt.order_by(column.desc().nullslast(), getattr(self.model, "id").desc())
+        # created_at 可能为空（数据集允许空值），nullslast 避免空值排在最前面
+        primary = column.asc().nullslast() if order == "asc" else column.desc().nullslast()
+        # 同值时按 id 兜底，保证多次请求顺序稳定（否则分页会出现重复/漏行）
+        return stmt.order_by(primary, getattr(self.model, "id").desc())
 
     def build(self) -> APIRouter:
         router = APIRouter(prefix=self.prefix, tags=[self.tag])
@@ -88,6 +90,7 @@ class _Crud(Generic[ModelT]):
             status: str | None = Query(None, description="状态精确匹配"),
             type: str | None = Query(None, description="类型精确匹配"),
             sort: str | None = Query(None, description="排序字段，默认按创建时间倒序"),
+            order: str | None = Query(None, pattern="^(asc|desc)$", description="排序方向"),
             session: Session = Depends(get_session),
         ):
             stmt = self._stmt(q, status, type)
@@ -95,7 +98,7 @@ class _Crud(Generic[ModelT]):
                 select(func.count()).select_from(stmt.subquery())  # type: ignore[arg-type]
             ).one()
             rows = session.exec(
-                self._order(stmt, sort).offset((page - 1) * size).limit(size)
+                self._order(stmt, sort, order).offset((page - 1) * size).limit(size)
             ).all()
             return {"items": rows, "total": total, "page": page, "size": size}
 
