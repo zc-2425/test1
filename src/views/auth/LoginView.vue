@@ -61,25 +61,33 @@ const bubbles = [
       </div>
 
       <form class="login__form" @submit.prevent="submit">
-        <v-text-field
-          v-model="email"
-          label="邮箱地址"
-          prepend-inner-icon="mdi-email-outline"
-          type="email"
-          autocomplete="username"
-          density="comfortable"
-        />
+        <div class="login__field">
+          <label class="login__label" for="login-email">邮箱地址</label>
+          <v-text-field
+            id="login-email"
+            v-model="email"
+            prepend-inner-icon="mdi-email-outline"
+            type="email"
+            autocomplete="username"
+            density="comfortable"
+            hide-details
+          />
+        </div>
 
-        <v-text-field
-          v-model="password"
-          label="密码"
-          prepend-inner-icon="mdi-lock-outline"
-          :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-          :type="showPassword ? 'text' : 'password'"
-          autocomplete="current-password"
-          density="comfortable"
-          @click:append-inner="showPassword = !showPassword"
-        />
+        <div class="login__field">
+          <label class="login__label" for="login-password">密码</label>
+          <v-text-field
+            id="login-password"
+            v-model="password"
+            prepend-inner-icon="mdi-lock-outline"
+            :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="current-password"
+            density="comfortable"
+            hide-details
+            @click:append-inner="showPassword = !showPassword"
+          />
+        </div>
 
         <div class="login__options">
           <label class="login__remember">
@@ -118,7 +126,7 @@ const bubbles = [
 <style scoped>
 .login {
   position: relative;
-  min-height: 100%;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,8 +210,35 @@ const bubbles = [
 .login__form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
+  gap: var(--spacing-3);
   text-align: left;
+}
+
+/* 标签在框上方（原型就是外置小标签，不是 M3 浮动标签），所以不传 label 给 VTextField */
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login__label {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-text-secondary);
+}
+
+.login__form :deep(.v-field) {
+  border-radius: var(--radius-sm);
+}
+
+.login__form :deep(.v-field__input) {
+  font-size: 13px;
+  min-height: 40px;
+}
+
+.login__form :deep(.v-field__prepend-inner .v-icon) {
+  font-size: 18px;
+  color: var(--color-text-tertiary);
 }
 
 .login__options {

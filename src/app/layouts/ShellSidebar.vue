@@ -54,7 +54,8 @@ const activeKey = computed(() => route.meta.navKey ?? '')
   line-height: 20px;
   font-weight: 400;
   text-decoration: none;
-  transition: background-color var(--motion-fast) var(--motion-ease),
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
     color var(--motion-fast) var(--motion-ease);
 }
 

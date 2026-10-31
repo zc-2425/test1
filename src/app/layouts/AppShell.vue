@@ -29,7 +29,7 @@ const showSidebar = computed(() => !route.meta.hideSidebar)
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100dvh;
   min-height: 0;
   background: var(--color-bg);
 }

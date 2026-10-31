@@ -61,7 +61,9 @@ const todos = computed(() => meta.value.todo ?? [])
           <i class="mdi mdi-radiobox-blank" aria-hidden="true" />
           <span>{{ item }}</span>
         </li>
-        <li v-if="!todos.length" class="stub__todo-empty">尚未登记待办，参见 docs/01-页面清单.md</li>
+        <li v-if="!todos.length" class="stub__todo-empty">
+          尚未登记待办，参见 docs/01-页面清单.md
+        </li>
       </ul>
     </section>
   </div>

@@ -85,10 +85,25 @@ export default createVuetify({
   },
   defaults: {
     VBtn: { rounded: 'lg', elevation: 0, variant: 'flat' },
-    VTextField: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto', color: 'primary' },
-    VTextarea: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto', color: 'primary' },
+    VTextField: {
+      variant: 'outlined',
+      density: 'comfortable',
+      hideDetails: 'auto',
+      color: 'primary'
+    },
+    VTextarea: {
+      variant: 'outlined',
+      density: 'comfortable',
+      hideDetails: 'auto',
+      color: 'primary'
+    },
     VSelect: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto', color: 'primary' },
-    VAutocomplete: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto', color: 'primary' },
+    VAutocomplete: {
+      variant: 'outlined',
+      density: 'comfortable',
+      hideDetails: 'auto',
+      color: 'primary'
+    },
     VSwitch: { inset: true, color: 'primary', hideDetails: true },
     VCard: { elevation: 0, rounded: 'lg', border: true },
     VChip: { rounded: 'pill', variant: 'outlined' },
