@@ -1,0 +1,90 @@
+# AI 智能体应用开发平台 · 高保真复刻
+
+一个从 0 到 1 的练手项目：把墨刀原型 [通用-AI智能体应用开发平台（60P+）](https://modao.cc/com24/details/mtmdet7sycn18vyr) 用 Vue 3 复刻成可运行的前端应用。不做部署，纯前端 + mock 数据，真调用大模型做成可插拔模块。
+
+## 技术栈
+
+| 层 | 选型 | 理由 |
+|---|---|---|
+| 框架 | Vue 3.5 + TypeScript 5.9 | |
+| 构建 | Vite 7.3 | |
+| UI | Vuetify 3.13 | 设计稿是 M3 风格（主色 `#6750A4` 正好是 M3 baseline primary），Vuetify 的 M3 组件吻合度最高 |
+| 路由 | Vue Router 4.6 | |
+| 状态 | Pinia 3.0 | |
+| 图标 | `@mdi/font` | 与 M3 图标同族 |
+
+> 依赖都锁在「已知稳定的大版本线」上，没有跟进 Vite 8 / TS 7 / ESLint 10 / Vuetify 4 这些新大版本。
+
+## 起步
+
+```bash
+pnpm install
+pnpm dev          # http://127.0.0.1:5273
+pnpm typecheck    # vue-tsc 全量类型检查
+pnpm lint         # eslint 扁平配置
+pnpm build        # 类型检查 + 产出 dist/
+pnpm format       # prettier
+```
+
+环境要求：Node ≥ 20.19（当前用 v24.19）。项目自带 `.npmrc`（npmmirror 源）与 `pnpm-workspace.yaml`（放行 esbuild 的安装脚本），只作用于本目录。
+
+## 目录约定
+
+```
+src/
+├─ app/
+│  ├─ layouts/         AppShell / ShellTopbar / ShellSidebar（布局壳）
+│  └─ router/          routes.ts（31 条路由 + meta 规格）/ nav.ts（侧栏 11 项）/ skeletons.ts
+├─ views/              页面，一个路由一个文件，按模块建子目录
+│  ├─ auth/            LoginView
+│  ├─ stubs/           StubView（占位页 = 规格浏览器，逐页替换）
+│  ├─ explore/ workflow/ app/ knowledge/ agent/
+│  └─ prompt/ llmops/ plugin/ dataset/ tool/ providers/
+├─ components/         跨页通用组件（P3/P4 建）
+├─ features/           域内复杂组件（画布/对话/图表，P9/P10 建）
+├─ styles/             tokens.css（设计令牌）/ base.css（重置+工具类）
+├─ plugins/            vuetify.ts（主题）
+├─ api/                接口层唯一出口（P12 建，mock 与真后端靠 adapter 切换）
+├─ mock/               假数据（P5 起逐步加）
+├─ stores/             Pinia
+└─ types/              router.d.ts 等类型声明
+```
+
+### 几条硬约定
+
+1. **设计令牌只在 `src/styles/tokens.css` 里改**，组件内不写死颜色/圆角/尺寸。
+2. **侧栏高亮按 `route.meta.navKey` 判定**，不按菜单文案——原型有 2 处高亮错位，这里已纠正。
+3. **路由 meta 带规格**：`title / subtitle / module / navKey / skeleton / phase / screen / todo`。占位页会把它渲染成一张「规格卡」，实现完一页就把 `todo` 清空。
+4. **原型自身的 bug 不照抄**：表头错位、状态跨页矛盾、画布无边线、字段英文、`API 密钥` 被截断等，详见 `docs/01-页面清单.md` 末节。
+5. **知识库 ≠ 数据集**，是两个独立实体，不能共用 store 或表结构。
+
+## 阶段进度
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| P0 | 工程基建（Vite + TS + ESLint + Prettier + 目录） | ✅ |
+| P1 | 布局骨架 + 31 条路由占位 + 占位页规格卡 | ✅ |
+| P2 | 设计令牌 + Vuetify 主题 + 字体/图标 | ✅ |
+| P3 | 基础组件 A（骨架 / 数据展示） | ⬜ |
+| P4 | 基础组件 B（表单 / 反馈） | ⬜ |
+| P5 | 列表页族（7 页） | ⬜ |
+| P6 | 详情页族（6 页 + 4 厂商详情） | ⬜ |
+| P7 | 创建页族（含 7 个配置模板） | ⬜ |
+| P8 | 探索 + 插件市场（卡片网格） | ⬜ |
+| P9 | 编辑器族（提示词编辑器 + 工作流画布） | ⬜ |
+| P10 | LLMOps 五 Tab + 两个全局弹窗 | ⬜ |
+| P11 | 登录页打磨 + 路由守卫 | ⬜ |
+| P12 | 真调用可插拔（SSE / 工作流运行 / 厂商连通性测试） | ⬜ |
+
+## 设计文档
+
+| 文档 | 说明 |
+|---|---|
+| [01-页面清单](docs/01-页面清单.md) | 62 画布 → 31 路由 + 2 弹窗态，含去重与原型缺陷清单 |
+| [02-信息架构](docs/02-信息架构.md) | 侧栏菜单树、路由高亮映射、页面族、跳转图、浮层层级 |
+| [03-组件与模式清单](docs/03-组件与模式清单.md) | 36 个组件、28 个状态值配色、8 种骨架配方、33 条路由归属 |
+| [04-设计令牌](docs/04-设计令牌.md) | 11 组令牌（标注实测/推算）、`:root`、Vuetify 主题、M3 判定 |
+| [05-接口与数据模型草案](docs/05-接口与数据模型草案.md) | 24 实体、96 条接口、24 份 Mock JSON、SSE 约定、Pinia 划分 |
+| [_ref/recording-walkthrough.md](_ref/recording-walkthrough.md) | 85 秒录屏逐秒还原 |
+
+`_ref/` 下是原始素材：62 张截图、逐秒抽帧、以及 `_spec/` 里 62 页的逐张规格 JSON（`frames/`、`_spec/` 已在 `.gitignore` 中排除）。
