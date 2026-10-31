@@ -50,6 +50,7 @@ const normalized = computed(() =>
       :clearable="clearable"
       :disabled="disabled"
       :placeholder="placeholder"
+      persistent-placeholder
       :error-messages="error || undefined"
       :hint="hint"
       :persistent-hint="!!hint"

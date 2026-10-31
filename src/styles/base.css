@@ -1,4 +1,4 @@
-/* ===== 基础重置 ===== */
+﻿/* ===== 基础重置 ===== */
 *,
 *::before,
 *::after {
@@ -165,4 +165,21 @@ svg {
 .sidebar-item-active {
   background: var(--color-primary);
   color: var(--color-text-inverse);
+}
+/* ===== 页面级布局工具 ===== */
+.u-page {
+  padding: var(--layout-page-padding);
+  max-width: var(--layout-content-max);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.u-page__error {
+  margin: 0;
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: var(--border-width) solid var(--color-divider);
+  background: var(--status-danger-bg);
+  font: var(--font-label-sm);
+  color: var(--status-danger);
 }

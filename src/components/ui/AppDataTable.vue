@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref, useSlots } from 'vue'
 import type { SortState, TableColumn } from '@/types/common'
 import AppEmptyState from './AppEmptyState.vue'
@@ -307,6 +307,11 @@ tbody tr.is-clickable {
   font-family: var(--font-family-mono);
   font-size: 13px;
   color: var(--color-text-secondary);
+  /* 模型名 / ID / 密钥这类等宽内容不应换行，否则行高会被撑开 */
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 td.is-center,

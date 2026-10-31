@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UI 基础组件统一出口。
  *
  * 命名统一加 `App` 前缀，避免与 Vuetify 的 V* 组件或 DOM 原生标签语义撞车。
@@ -43,9 +43,10 @@ export { default as AppFilterBar } from './AppFilterBar.vue'
 export { default as AppTabNav } from './AppTabNav.vue'
 export { default as AppDetailHeader } from './AppDetailHeader.vue'
 export { default as AppOperationCard } from './AppOperationCard.vue'
+export { default as AppRowActions } from './AppRowActions.vue'
 
 // —— 类型与常量 ——
 export { STATUS_TONES, TYPE_CHIP_KEYS, toneOf } from './status-tones'
-export type { KeyValueItem, OperationItem, TabItem } from './types'
+export type { KeyValueItem, OperationItem, RowAction, TabItem } from './types'
 export type { TableColumn, SortState, PageResult, StatusTone, BadgeVariant } from '@/types/common'
 export type { ToastTone, ToastOptions } from '@/composables/useToast'

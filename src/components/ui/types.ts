@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UI 组件共享的公开类型。
  * 单独放一个 .ts 而不是写在 `<script setup>` 里：script setup 不允许 export，
  * 靠类型擦除「碰巧能跑」的写法在换构建链时会炸。
@@ -31,4 +31,11 @@ export interface KeyValueItem {
   variant?: 'text' | 'strong' | 'mono' | 'link'
   /** 整行占满（长文本） */
   block?: boolean
+}
+/** AppRowActions 的单个菜单项 */
+export interface RowAction {
+  key: string
+  label: string
+  icon?: string
+  tone?: 'default' | 'danger'
 }

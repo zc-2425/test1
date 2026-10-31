@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from 'vue-router'
+﻿import type { RouteRecordRaw } from 'vue-router'
 
 /**
  * 全量路由表 —— 31 条（另有 2 个由 query 驱动的全局弹窗态：?alerts=1 / ?settings=1）。
@@ -68,7 +68,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'workflow/list',
     name: 'workflow-list',
-    component: Stub,
+    component: () => import('@/views/workflow/WorkflowListView.vue'),
     meta: {
       title: '工作流管理',
       module: '工作流',
@@ -127,7 +127,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'app/list',
     name: 'app-list',
-    component: Stub,
+    component: () => import('@/views/app/AppListView.vue'),
     meta: {
       title: '应用管理',
       module: '应用中心',
@@ -157,7 +157,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'knowledge/list',
     name: 'knowledge-list',
-    component: Stub,
+    component: () => import('@/views/knowledge/KnowledgeListView.vue'),
     meta: {
       title: '知识库管理',
       module: '知识库',
@@ -208,7 +208,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'agent/list',
     name: 'agent-list',
-    component: Stub,
+    component: () => import('@/views/agent/AgentListView.vue'),
     meta: {
       title: 'AI Agent',
       module: 'Agent',
@@ -265,7 +265,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'prompt/list',
     name: 'prompt-list',
-    component: Stub,
+    component: () => import('@/views/prompt/PromptListView.vue'),
     meta: {
       title: '提示词管理',
       module: '提示词工程',
@@ -409,7 +409,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'dataset/list',
     name: 'dataset-list',
-    component: Stub,
+    component: () => import('@/views/dataset/DatasetListView.vue'),
     meta: {
       title: '数据集管理',
       module: '数据集',
@@ -443,7 +443,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'tool/list',
     name: 'tool-list',
-    component: Stub,
+    component: () => import('@/views/tool/ToolListView.vue'),
     meta: {
       title: '工具',
       module: '工具',

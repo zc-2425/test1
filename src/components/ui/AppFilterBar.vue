@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 筛选条：列表页统一结构 —— 左侧搜索 + 若干下拉，右侧操作按钮。
  * 原型 62 页里**一个筛选条都没有**（0 个搜索框），这是必须补的交互；
@@ -57,6 +57,16 @@ withDefaults(
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
+  flex: 0 0 auto;
+}
+
+.filter-bar__main :deep(.app-text-field) {
+  width: 240px;
+  flex: 0 0 auto;
+}
+
+.filter-bar__main :deep(.app-select) {
+  width: 150px;
   flex: 0 0 auto;
 }
 

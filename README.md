@@ -55,7 +55,7 @@ src/                      前端
 ├─ styles/             tokens.css（设计令牌）/ base.css（重置+工具类）
 ├─ composables/        useToast（命令式提示）/ useConfirm（Promise 化确认）
 ├─ plugins/            vuetify.ts（主题）
-├─ api/                接口层唯一出口（P5 起用，mock 与真后端靠 adapter 切换）
+├─ api/                接口层唯一出口：http.ts（fetch 封装）/ resources.ts（9 实体工厂）/ types.ts（DTO）
 ├─ mock/               假数据（P5 起逐步加）
 ├─ stores/             Pinia
 └─ types/              router.d.ts / common.ts 等类型声明
@@ -93,7 +93,7 @@ server/                   后端（详见 server/README.md）
 | P3 | 基础组件 A（骨架 / 数据展示）：10 个组件 + `/dev/ui` 组件预览页 | ✅ |
 | P4 | 基础组件 B（表单 / 反馈 12 件 + 4 个页面级配方） | ✅ |
 | **P4.5** | **FastAPI + SQLite 后端：13 表 / 9 实体 CRUD / 种子数据 / 冒烟测试** | **✅** |
-| P5 | 列表页族（7 页，直接打真接口） | ⬜ |
+| P5 | 列表页族（7 页）：真接口分页 / 搜索 / 筛选 / 排序 / 行内操作 / 删除确认 | ✅ |
 | P6 | 详情页族（6 页 + 4 厂商详情） | ⬜ |
 | P7 | 创建页族（含 7 个配置模板） | ⬜ |
 | P8 | 探索 + 插件市场（卡片网格） | ⬜ |

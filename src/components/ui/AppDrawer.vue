@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 右侧抽屉。原型 62 页里一次都没画过抽屉（录屏里 0 个），
  * 但「新建应用」「添加提供商」「工具运行」「Agent 运行调试」这些操作塞进抽屉比弹窗合适，
@@ -60,6 +60,9 @@ withDefaults(
   flex-direction: column;
   background: var(--color-surface);
   border-left: var(--border-width) solid var(--color-border);
+  /* 抽屉从顶栏下方开始，而不是盖住顶栏（原型没有抽屉，这里按桌面端习惯处理） */
+  top: var(--layout-topbar-height);
+  height: calc(100% - var(--layout-topbar-height));
 }
 
 .app-drawer__head {
