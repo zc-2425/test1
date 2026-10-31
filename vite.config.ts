@@ -19,6 +19,22 @@ export default defineConfig({
     port: 5273,
     strictPort: false,
     open: false,
+    watch: {
+      /**
+       * 编辑器/工具做原子保存时会在源目录里创建 `<file>.<pid>.<uuid>.tmpdir/`，
+       * chokidar 在 Windows 上监视这种句柄未释放的临时文件会抛 EBUSY 直接把 dev server 打挂。
+       * _ref 是 60+ 张截图与抽帧，没有监听价值，一并排除。
+       */
+      ignored: [
+        '**/.git/**',
+        '**/node_modules/**',
+        '**/*.tmpdir/**',
+        '**/*.tmp',
+        '**/_ref/**',
+        '**/dist/**',
+        '**/server/**'
+      ]
+    },
     // 前端只认 /api，由 Vite 代理到本地 FastAPI（server/ 目录）
     proxy: {
       '/api': {

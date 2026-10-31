@@ -54,6 +54,27 @@ export default tseslint.config(
     }
   },
   {
+    // Node 脚本（开发工具）：flat config 不像 eslintrc 那样自带 env，
+    // 这里显式声明用到的 Node 全局，避免为了几个 global 再装一个 globals 包
+    files: ['scripts/**/*.{js,mjs}', '*.config.js'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly',
+        WebSocket: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        __dirname: 'readonly'
+      }
+    },
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
     files: ['**/*.d.ts'],
     rules: {
       '@typescript-eslint/no-empty-object-type': 'off'

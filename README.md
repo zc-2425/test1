@@ -1,4 +1,4 @@
-# AI 智能体应用开发平台 · 高保真复刻
+﻿# AI 智能体应用开发平台 · 高保真复刻
 
 一个从 0 到 1 的练手项目：把墨刀原型 [通用-AI智能体应用开发平台（60P+）](https://modao.cc/com24/details/mtmdet7sycn18vyr) 复刻成可运行的全栈应用。不做部署：前端 + 本地 FastAPI + SQLite，真调用大模型做成可插拔模块。
 
@@ -28,6 +28,10 @@ pnpm typecheck      # vue-tsc 全量类型检查
 pnpm lint           # eslint 扁平配置
 pnpm build          # 类型检查 + 产出 dist/
 pnpm test:server    # 后端 pytest 冒烟测试
+
+# 开发期工具：走 Edge 的 CDP 打开页面 → 可先执行一段 JS（点按钮）→ 截图
+# 用来验证 toast / 弹窗 / 抽屉这类「点了才出现」的交互态
+node scripts/dev-screenshot.mjs --url http://127.0.0.1:5273/dev/ui --out _ref/_shots/kit.png
 ```
 
 前端只写 `/api/...`，由 Vite 代理到 5274（见 `vite.config.ts`），所以浏览器里不存在跨域。
@@ -49,11 +53,14 @@ src/                      前端
 ├─ components/         跨页通用组件（P3/P4 建）
 ├─ features/           域内复杂组件（画布/对话/图表，P9/P10 建）
 ├─ styles/             tokens.css（设计令牌）/ base.css（重置+工具类）
+├─ composables/        useToast（命令式提示）/ useConfirm（Promise 化确认）
 ├─ plugins/            vuetify.ts（主题）
 ├─ api/                接口层唯一出口（P5 起用，mock 与真后端靠 adapter 切换）
 ├─ mock/               假数据（P5 起逐步加）
 ├─ stores/             Pinia
-└─ types/              router.d.ts 等类型声明
+└─ types/              router.d.ts / common.ts 等类型声明
+
+scripts/                  开发工具（CDP 截图脚本）
 
 server/                   后端（详见 server/README.md）
 ├─ app/
@@ -83,9 +90,9 @@ server/                   后端（详见 server/README.md）
 | P0 | 工程基建（Vite + TS + ESLint + Prettier + 目录） | ✅ |
 | P1 | 布局骨架 + 31 条路由占位 + 占位页规格卡 | ✅ |
 | P2 | 设计令牌 + Vuetify 主题 + 字体/图标 | ✅ |
-| **P4.5** | **FastAPI + SQLite 后端：13 表 / 9 实体 CRUD / 种子数据 / 冒烟测试** | **✅** |
 | P3 | 基础组件 A（骨架 / 数据展示）：10 个组件 + `/dev/ui` 组件预览页 | ✅ |
-| P4 | 基础组件 B（表单 / 反馈） | ⬜ |
+| P4 | 基础组件 B（表单 / 反馈 12 件 + 4 个页面级配方） | ✅ |
+| **P4.5** | **FastAPI + SQLite 后端：13 表 / 9 实体 CRUD / 种子数据 / 冒烟测试** | **✅** |
 | P5 | 列表页族（7 页，直接打真接口） | ⬜ |
 | P6 | 详情页族（6 页 + 4 厂商详情） | ⬜ |
 | P7 | 创建页族（含 7 个配置模板） | ⬜ |

@@ -1,24 +1,41 @@
 ﻿<script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import {
+  AppButton,
   AppContentCard,
   AppDataTable,
+  AppDetailHeader,
+  AppDrawer,
   AppEmptyState,
+  AppFileUploader,
+  AppFilterBar,
   AppKeyValueList,
+  AppModal,
+  AppOperationCard,
   AppPageHeader,
   AppPagination,
   AppProgressInline,
+  AppSelect,
+  AppSlider,
   AppStatCard,
   AppStatusBadge,
+  AppSwitch,
+  AppTabNav,
   AppTagChip,
+  AppTagInput,
+  AppTextField,
+  AppTextarea,
   STATUS_TONES
 } from '@/components/ui'
+import type { OperationItem, TabItem } from '@/components/ui'
+import { toast } from '@/composables/useToast'
+import { confirm } from '@/composables/useConfirm'
 import { listWorkflows, type WorkflowDto } from '@/api/workflows'
 import type { SortState, TableColumn } from '@/types/common'
 import { formatRelative } from '@/utils/format'
 
 /**
- * P3 组件预览页（仅开发用，不在 62 画布的 31 条业务路由里）。
+ * P3 + P4 组件预览页（仅开发用，不在 62 画布的 31 条业务路由里）。
  * 作用有两个：1) 组件视觉基线，改样式先来这里看全量；2) 用真接口验一遍前后端链路。
  */
 
@@ -127,6 +144,86 @@ watch(keyword, () => {
 onMounted(() => void load())
 
 const filtered = computed(() => keyword.value.trim().length > 0)
+
+/* ---------------- P4 演示状态 ---------------- */
+const btnLoading = ref(false)
+
+const form = ref({
+  name: '智能客服助手',
+  type: '聊天助手',
+  status: '活跃',
+  description: '基于知识库的智能客服 Agent，能够处理常见问题并转接人工',
+  systemPrompt: '你是一个智能助手，请根据用户的需求提供帮助。',
+  enabled: true,
+  temperature: 0.7,
+  threshold: 0.75,
+  tags: ['客服', '知识库'] as string[],
+  files: [] as File[]
+})
+
+const typeOptions = ['聊天助手', '数据分析', '内容创作', '技术支持', '办公']
+const statusOptions = ['活跃', '草稿', '暂停', '错误']
+
+const tabUnderline = ref('config')
+const tabPill = ref('all')
+const underlineTabs: TabItem[] = [
+  { key: 'config', label: '配置' },
+  { key: 'history', label: '运行历史', count: 156 },
+  { key: 'tools', label: '工具管理', count: 5 }
+]
+const pillTabs: TabItem[] = [
+  { key: 'all', label: '所有提供商', count: 7 },
+  { key: 'configured', label: '已配置', count: 3 },
+  { key: 'models', label: '可用模型', count: 62 },
+  { key: 'stats', label: '调用统计' }
+]
+
+const filterKeyword = ref('')
+const filterStatus = ref<string | null>(null)
+
+const modalOpen = ref(false)
+const drawerOpen = ref(false)
+const lastOp = ref('—')
+
+const operations: OperationItem[] = [
+  { key: 'run', label: '运行工具', icon: 'mdi-play-circle-outline', description: '用示例输入试跑一次' },
+  { key: 'edit', label: '编辑配置', icon: 'mdi-pencil-outline' },
+  { key: 'stats', label: '查看使用统计', icon: 'mdi-chart-line', description: '近 7 天 1,520 次调用' },
+  { key: 'delete', label: '删除工具', icon: 'mdi-trash-can-outline', tone: 'danger' }
+]
+
+async function onOperation(key: string): Promise<void> {
+  lastOp.value = key
+  if (key !== 'delete') {
+    toast(`已触发「${key}」`, { tone: 'info' })
+    return
+  }
+  const ok = await confirm({
+    title: '删除工具「文本摘要器」',
+    description: '删除后引用它的 Agent 与工作流会失去该工具，操作不可撤销。',
+    confirmText: '删除',
+    tone: 'danger'
+  })
+  toast(ok ? '已删除（演示，未真的删除）' : '已取消', { tone: ok ? 'success' : 'info' })
+}
+
+function simulateSave(): void {
+  btnLoading.value = true
+  window.setTimeout(() => {
+    btnLoading.value = false
+    toast('保存成功', { description: '配置已更新', tone: 'success' })
+  }, 900)
+}
+
+async function askDanger(): Promise<void> {
+  const ok = await confirm({
+    title: '删除 Agent',
+    description: '将同时删除其运行历史与关联的工具授权。',
+    confirmText: '删除',
+    tone: 'danger'
+  })
+  if (ok) toast('已删除', { tone: 'success' })
+}
 </script>
 
 <template>
@@ -312,6 +409,233 @@ const filtered = computed(() => keyword.value.trim().length > 0)
         <AppPagination v-model:page="page" v-model:size="size" :total="total" />
       </template>
     </AppContentCard>
+
+    <!-- ================= P4 ================= -->
+
+    <AppContentCard title="按钮 AppButton" subtitle="四种形态 × 两种尺寸；原型里按钮其实不统一，这里收敛成变体">
+      <div class="kit__chips">
+        <AppButton variant="primary">主要按钮</AppButton>
+        <AppButton variant="secondary">次要按钮</AppButton>
+        <AppButton variant="ghost">幽灵按钮</AppButton>
+        <AppButton variant="danger">危险按钮</AppButton>
+        <AppButton variant="primary" loading>保存中</AppButton>
+        <AppButton variant="secondary" disabled>已禁用</AppButton>
+      </div>
+      <div class="kit__chips kit__mt">
+        <AppButton size="sm" icon="mdi-plus">新建</AppButton>
+        <AppButton size="sm" variant="secondary" icon="mdi-play">运行</AppButton>
+        <AppButton size="sm" variant="secondary" icon="mdi-content-copy">复制</AppButton>
+        <AppButton size="sm" variant="secondary" icon="mdi-share-variant">分享</AppButton>
+        <AppButton size="sm" icon="mdi-chevron-right" icon-after>下一步</AppButton>
+      </div>
+    </AppContentCard>
+
+    <AppContentCard title="表单控件" subtitle="包 Vuetify：校验态、输入法、无障碍由底座负责；标签与间距统一在这里">
+      <div class="kit__grid kit__grid--2">
+        <AppTextField
+          v-model="form.name"
+          label="Agent 名称"
+          required
+          prefix-icon="mdi-robot-outline"
+          hint="在列表与调用示例中展示"
+        />
+        <AppTextField
+          v-model="form.description"
+          label="描述"
+          prefix-icon="mdi-text-short"
+          placeholder="一句话说明它是做什么的"
+        />
+        <AppSelect v-model="form.type" label="Agent 类型" :items="typeOptions" required />
+        <AppSelect
+          v-model="form.status"
+          label="状态"
+          :items="statusOptions"
+          hint="不同状态在列表里的胶囊颜色不同"
+        />
+      </div>
+
+      <div class="kit__mt">
+        <AppTextarea
+          v-model="form.systemPrompt"
+          label="系统提示词"
+          :rows="3"
+          counter
+          hint="支持多行，计数器上限由 maxlength 控制"
+        />
+      </div>
+
+      <div class="kit__grid kit__grid--2 kit__mt">
+        <AppSwitch
+          v-model="form.enabled"
+          label="启用该 Agent"
+          description="停用后不再接受新的会话"
+          show-state
+        />
+        <div />
+        <AppSlider v-model="form.temperature" label="温度" :min="0" :max="2" :step="0.1" hint="推荐 0.7" />
+        <AppSlider
+          v-model="form.threshold"
+          label="知识检索相似度阈值"
+          :min="0"
+          :max="1"
+          :step="0.05"
+          suffix=""
+          hint="低于该值的分块不会被引用"
+        />
+      </div>
+
+      <div class="kit__grid kit__grid--2 kit__mt">
+        <AppTagInput v-model="form.tags" label="能力标签" :max="6" />
+        <AppFileUploader
+          v-model="form.files"
+          label="知识库文档"
+          accept=".pdf,.docx,.md,.txt"
+          :max-size-mb="20"
+          hint="拖拽或点击选择，支持多选"
+          @error="(message) => toast(message, { tone: 'error' })"
+        />
+      </div>
+    </AppContentCard>
+
+    <AppContentCard title="页签 AppTabNav" subtitle="下划线式（详情页）/ 胶囊式（提供商页）">
+      <AppTabNav v-model="tabUnderline" :items="underlineTabs" variant="underline" />
+      <p class="kit__hint kit__mt">当前选中：{{ tabUnderline }}</p>
+      <div class="kit__mt">
+        <AppTabNav v-model="tabPill" :items="pillTabs" variant="pill" />
+      </div>
+      <p class="kit__hint kit__mt">当前选中：{{ tabPill }}</p>
+    </AppContentCard>
+
+    <AppContentCard title="详情页页头 AppDetailHeader" subtitle="返回箭头 + 头像 + 标题 + 状态 + 操作组（原型顶栏没有面包屑，返回全靠这个箭头）">
+      <AppDetailHeader
+        title="智能客服助手"
+        subtitle="基于知识库的智能客服Agent，能够处理常见问题并转接人工"
+        avatar-text="智"
+        back-to="/agent/list"
+      >
+        <template #status>
+          <AppStatusBadge status="活跃" />
+        </template>
+        <template #actions>
+          <AppButton variant="secondary" size="sm" icon="mdi-play">运行</AppButton>
+          <AppButton variant="secondary" size="sm" icon="mdi-content-copy">复制</AppButton>
+          <AppButton size="sm" icon="mdi-pencil">编辑</AppButton>
+        </template>
+      </AppDetailHeader>
+    </AppContentCard>
+
+    <AppContentCard title="筛选条 AppFilterBar" subtitle="原型 62 页 0 个搜索框，这是必须补的；搜索 + 下拉 + 分类 chips + 右侧操作" flush>
+      <AppFilterBar :summary="`共 ${total} 条`">
+        <AppTextField
+          v-model="filterKeyword"
+          dense
+          type="search"
+          prefix-icon="mdi-magnify"
+          placeholder="搜索名称…"
+        />
+        <AppSelect
+          v-model="filterStatus"
+          dense
+          :items="statusOptions"
+          placeholder="全部状态"
+          clearable
+        />
+        <AppTagChip label="全部" clickable active />
+        <AppTagChip label="聊天流" clickable />
+        <AppTagChip label="工作流" clickable />
+        <template #actions>
+          <AppButton size="sm" variant="ghost" icon="mdi-filter-remove-outline">重置</AppButton>
+          <AppButton size="sm" variant="secondary" icon="mdi-refresh">刷新</AppButton>
+        </template>
+      </AppFilterBar>
+      <div class="kit__pad">
+        <p class="kit__hint">
+          关键字「{{ filterKeyword || '（空）' }}」/ 状态「{{ filterStatus || '全部' }}」——
+          这里只演示结构，真实筛选在列表页接接口。
+        </p>
+      </div>
+    </AppContentCard>
+
+    <div class="kit__grid kit__grid--2">
+      <AppContentCard title="操作卡 AppOperationCard" subtitle="详情页右栏；最后一项是危险操作">
+        <AppOperationCard bare :title="''" :items="operations" @action="onOperation" />
+        <p class="kit__hint kit__mt">最近触发：{{ lastOp }}</p>
+      </AppContentCard>
+
+      <AppContentCard title="反馈：Modal / Drawer / Toast / Confirm" subtitle="全部命令式调用，页面里不需要各开一份弹窗模板">
+        <div class="kit__chips">
+          <AppButton size="sm" variant="secondary" @click="modalOpen = true">打开弹窗</AppButton>
+          <AppButton size="sm" variant="secondary" @click="drawerOpen = true">打开抽屉</AppButton>
+          <AppButton size="sm" variant="secondary" @click="askDanger">危险确认</AppButton>
+        </div>
+        <div class="kit__chips kit__mt">
+          <AppButton size="sm" variant="ghost" @click="toast('保存成功')">成功 Toast</AppButton>
+          <AppButton
+            size="sm"
+            variant="ghost"
+            @click="toast('接口调用失败', { tone: 'error', description: 'HTTP 500 /api/workflows' })"
+          >
+            错误 Toast
+          </AppButton>
+          <AppButton
+            size="sm"
+            variant="ghost"
+            @click="toast('向量化进度 65%', { tone: 'warning' })"
+          >
+            警告 Toast
+          </AppButton>
+          <AppButton size="sm" variant="ghost" @click="toast('已切换到只读模式', { tone: 'info' })">
+            提示 Toast
+          </AppButton>
+        </div>
+      </AppContentCard>
+    </div>
+
+    <AppModal v-model="modalOpen" title="创建工作流" subtitle="从模板创建，名称与描述会预填" :max-width="560">
+      <div class="kit__form">
+        <AppTextField v-model="form.name" label="工作流名称" required />
+        <AppTextarea v-model="form.description" label="描述" :rows="2" />
+        <AppSelect v-model="form.type" label="类型" :items="['聊天流', '工作流']" />
+        <AppTagInput v-model="form.tags" label="功能标签" :max="5" />
+      </div>
+      <template #footer>
+        <AppButton variant="secondary" size="sm" @click="modalOpen = false">取消</AppButton>
+        <AppButton
+          size="sm"
+          :loading="btnLoading"
+          @click="
+            () => {
+              simulateSave()
+              modalOpen = false
+            }
+          "
+        >
+          创建工作流
+        </AppButton>
+      </template>
+    </AppModal>
+
+    <AppDrawer v-model="drawerOpen" title="运行工具" subtitle="用示例输入试跑一次" :width="560">
+      <div class="kit__form">
+        <AppTextarea v-model="form.description" label="输入" :rows="4" />
+        <AppTextField v-model="form.name" label="工具" readonly />
+        <div class="kit__result">点击「运行」查看结果…</div>
+      </div>
+      <template #footer>
+        <AppButton variant="secondary" size="sm" @click="drawerOpen = false">关闭</AppButton>
+        <AppButton
+          size="sm"
+          @click="
+            () => {
+              toast('运行完成', { tone: 'success' })
+              drawerOpen = false
+            }
+          "
+        >
+          运行
+        </AppButton>
+      </template>
+    </AppDrawer>
   </div>
 </template>
 
@@ -452,5 +776,24 @@ const filtered = computed(() => keyword.value.trim().length > 0)
 .kit__error {
   font: var(--font-label-sm);
   color: var(--status-danger);
+}
+.kit__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.kit__result {
+  min-height: 96px;
+  padding: var(--spacing-3);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-low);
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
+}
+
+.kit__pad {
+  padding: var(--spacing-3) var(--spacing-4);
 }
 </style>

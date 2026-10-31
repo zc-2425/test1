@@ -1,17 +1,10 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 只读「标签 + 值」列表。6 个详情页（Agent / 知识库 / 数据集 / 工具 / 厂商 / 应用）的
  * 左信息卡与右统计卡都是这个结构，字段缺失必须兜底成「-」而不是渲染空白——
  * 原型里数据集详情页的「创建时间」就是空的。
  */
-export interface KeyValueItem {
-  label: string
-  value?: string | number | null
-  /** 值用主色/等宽等特殊样式 */
-  variant?: 'text' | 'strong' | 'mono' | 'link'
-  /** 整行占满（长文本） */
-  block?: boolean
-}
+import type { KeyValueItem } from './types'
 
 withDefaults(
   defineProps<{
