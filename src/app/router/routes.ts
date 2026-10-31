@@ -48,7 +48,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'explore/template/:key/config',
     name: 'explore-template-config',
-    component: Stub,
+    component: () => import('@/views/explore/TemplateConfigView.vue'),
     meta: {
       title: '配置模板',
       module: '探索',
@@ -86,7 +86,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'workflow/create',
     name: 'workflow-create',
-    component: Stub,
+    component: () => import('@/views/workflow/WorkflowCreateView.vue'),
     meta: {
       title: '创建新工作流',
       subtitle: '选择模板快速开始，或创建空白工作流自定义构建',
@@ -171,7 +171,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'knowledge/create',
     name: 'knowledge-create',
-    component: Stub,
+    component: () => import('@/views/knowledge/KnowledgeCreateView.vue'),
     meta: {
       title: '创建新知识库',
       module: '知识库',
@@ -226,7 +226,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'agent/create',
     name: 'agent-create',
-    component: Stub,
+    component: () => import('@/views/agent/AgentCreateView.vue'),
     meta: {
       title: '创建新Agent',
       module: 'Agent',
@@ -461,7 +461,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'tool/create',
     name: 'tool-create',
-    component: Stub,
+    component: () => import('@/views/tool/ToolCreateView.vue'),
     meta: {
       title: '创建工具',
       module: '工具',
@@ -493,12 +493,13 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'tool/template/config',
     name: 'tool-template-config',
-    component: Stub,
+    component: () => import('@/views/explore/TemplateConfigView.vue'),
     meta: {
       title: '配置模板: 工具模板',
       module: '工具',
       navKey: 'tool',
       skeleton: 'E',
+      templateKey: 'tool',
       phase: 'P7',
       screen: '11-配置模板-工具模板.png',
       todo: ['居中窄栏 ≈600px：说明卡 + 2×2 模板配置卡']

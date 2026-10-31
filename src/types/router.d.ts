@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 路由 meta 的类型扩展。
  * 每个页面的「骨架配方 / 计划阶段 / 对照截图」都写在 meta 里，
  * 这样 P1 的占位页可以直接当「规格浏览器」用，P5–P10 逐页替换组件即可。
@@ -24,6 +24,8 @@ declare module 'vue-router' {
     screen?: string
     /** 本页待办要点，占位页上直接展示 */
     todo?: string[]
+    /** 配置模板页使用的 schema key（工具模板走独立路由，没有 :key 参数） */
+    templateKey?: string
     /** 隐藏侧边栏（画布页专用） */
     hideSidebar?: boolean
     /** 无壳布局（登录页专用） */
