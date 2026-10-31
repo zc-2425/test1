@@ -1,0 +1,129 @@
+/**
+ * 设计令牌 —— 全部来自 docs/04-设计令牌.md 的实测值
+ *
+ * 关于尺寸口径：62 张截图是墨刀预览按 0.81× 缩放的（1× 图宽 1554–1567，画布 1920）。
+ * docs/02、04 里的 202px / 49px 是未归一化的图片像素，本文件已按 1/0.81 换算：
+ *   侧栏 202→248px、顶栏 49→72px（08/06 两批 56/60px 未归一化值 ×1.23 ≈ 69–74，互相印证）。
+ * 如需逐像素对齐某张截图，只改 --layout-* 三个值即可。
+ */
+:root {
+  /* ===== 品牌色 ===== */
+  --color-primary: #6750a4;
+  --color-primary-dark: #57428e;
+  --color-primary-light: #8571bf;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #eaddff;
+  --color-primary-tint: #ede7f6;
+  --gradient-auth: linear-gradient(135deg, #6878e2 0%, #7551aa 100%);
+  --color-auth-deco: #f2e1f9;
+  --color-accent: #f57c00; /* hover 强调：描边 / 整行 / 按钮 */
+  --color-accent-soft: rgba(245, 124, 0, 0.08);
+
+  /* ===== 表面色 ===== */
+  --color-bg: #fffbff;
+  --color-surface: #fffbff;
+  --color-surface-header: #fafafa;
+  --color-surface-low: #f7f2fa;
+  --color-surface-container: #f3edf7;
+  --color-surface-variant: #e7e0ec;
+  --color-sidebar-bg: #fef7ff;
+  --color-scrim: rgba(0, 0, 0, 0.4);
+
+  /* ===== 文字色 ===== */
+  --color-text: #322f32;
+  --color-text-secondary: #5d5a5d;
+  --color-text-tertiary: #9e9e9e;
+  --color-text-sidebar: #43525a;
+  --color-text-disabled: rgba(50, 47, 50, 0.38);
+  --color-text-inverse: #ffffff;
+
+  /* ===== 状态色 ===== */
+  --status-success: #2e7d32;
+  --status-running: #1b88ca;
+  --status-warning: #f57c00;
+  --status-danger: #ba1a1a;
+  --status-neutral: #969598;
+  --status-accent: #6750a4;
+  --status-info: #1976d2;
+  --status-warning-bg: #ffe1a6;
+  --status-danger-bg: #ffdad6;
+  --status-success-bg: #ddf3de;
+
+  /* ===== 边框与分割 ===== */
+  --color-border: #cac4d0;
+  --color-divider: #e8e3e7;
+  --color-outline: #79747e;
+  --color-sidebar-divider: #dbd8dc;
+  --color-border-error: #ba1a1a;
+  --border-width: 1px;
+
+  /* ===== 圆角 ===== */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* ===== 阴影 ===== */
+  --shadow-none: none;
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  /* ===== 布局（已按 0.81× 缩放开方归一化） ===== */
+  --layout-sidebar-width: 248px;
+  --layout-topbar-height: 72px;
+  --layout-content-max: 1680px;
+  --layout-page-padding: 24px;
+  --table-header-height: 44px;
+  --table-row-height: 52px;
+  --drawer-width: 560px;
+  --panel-node-width: 300px;
+  --panel-test-width: 260px;
+
+  /* ===== 间距（8 网格） ===== */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --gap-card-grid: 20px;
+
+  /* ===== 字体 ===== */
+  --font-family: 'Roboto', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-family-mono: 'Roboto Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --font-display-sm: 600 28px/36px var(--font-family);
+  --font-headline-sm: 600 24px/32px var(--font-family);
+  --font-title-lg: 500 20px/28px var(--font-family);
+  --font-title-md: 500 16px/24px var(--font-family);
+  --font-body-md: 400 14px/20px var(--font-family);
+  --font-body-sm: 400 13px/20px var(--font-family);
+  --font-label-md: 500 13px/20px var(--font-family);
+  --font-label-sm: 400 12px/16px var(--font-family);
+  --font-stat: 600 22px/28px var(--font-family);
+
+  /* ===== 图标 ===== */
+  --icon-xs: 16px;
+  --icon-sm: 20px;
+  --icon-md: 24px;
+  --icon-block: 40px;
+  --avatar-lg: 44px;
+
+  /* ===== 动效 ===== */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ===== 图表系列 ===== */
+  --chart-1: #1976d2;
+  --chart-1-area: #a2d2fe;
+  --chart-2: #2e7d32;
+  --chart-3: #f57c00;
+  --chart-4: #6750a4;
+  --chart-5: #ba1a1a;
+  --chart-budget-line: #2e7d32;
+}

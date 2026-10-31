@@ -1,0 +1,168 @@
+/* ===== 基础重置 ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ===== 滚动条（Chromium） ===== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface-variant) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-surface-variant);
+  border-radius: var(--radius-full);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== 焦点可见性（仅键盘） ===== */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===== 排版工具类 ===== */
+.u-page-title {
+  font: var(--font-headline-sm);
+  color: var(--color-text);
+  letter-spacing: 0;
+}
+
+.u-card-title {
+  font: var(--font-title-md);
+  color: var(--color-text);
+}
+
+.u-body {
+  font: var(--font-body-md);
+  color: var(--color-text);
+}
+
+.u-body-secondary {
+  font: var(--font-body-md);
+  color: var(--color-text-secondary);
+}
+
+.u-caption {
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+}
+
+.u-mono {
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.u-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 布局工具类 ===== */
+.u-row {
+  display: flex;
+  align-items: center;
+}
+
+.u-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.u-gap-1 {
+  gap: var(--spacing-1);
+}
+.u-gap-2 {
+  gap: var(--spacing-2);
+}
+.u-gap-3 {
+  gap: var(--spacing-3);
+}
+.u-gap-4 {
+  gap: var(--spacing-4);
+}
+.u-gap-6 {
+  gap: var(--spacing-6);
+}
+
+.u-spacer {
+  flex: 1 1 auto;
+}
+
+/* ===== 应用级覆盖：侧栏激活态 =====
+   设计实测为「整行直角紫底 + 白字」，不是 M3 的药丸 indicator，
+   Vuetify 的 VListItem 默认是药丸，所以侧栏用自绘 DOM 实现，见 ShellSidebar.vue */
+.sidebar-item-active {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
