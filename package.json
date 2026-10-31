@@ -11,7 +11,9 @@
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"src/**/*.{ts,vue,css,scss,json}\" \"*.{ts,json,js}\""
+    "format": "prettier --write \"src/**/*.{ts,vue,css,scss,json}\" \"*.{ts,json,js}\"",
+    "dev:server": "cd server && .venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --port 5274",
+    "test:server": "cd server && .venv\\Scripts\\python.exe -m pytest tests -q"
   },
   "engines": {
     "node": ">=20.19.0"

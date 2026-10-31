@@ -1,37 +1,43 @@
 # AI 智能体应用开发平台 · 高保真复刻
 
-一个从 0 到 1 的练手项目：把墨刀原型 [通用-AI智能体应用开发平台（60P+）](https://modao.cc/com24/details/mtmdet7sycn18vyr) 用 Vue 3 复刻成可运行的前端应用。不做部署，纯前端 + mock 数据，真调用大模型做成可插拔模块。
+一个从 0 到 1 的练手项目：把墨刀原型 [通用-AI智能体应用开发平台（60P+）](https://modao.cc/com24/details/mtmdet7sycn18vyr) 复刻成可运行的全栈应用。不做部署：前端 + 本地 FastAPI + SQLite，真调用大模型做成可插拔模块。
 
 ## 技术栈
 
 | 层 | 选型 | 理由 |
 |---|---|---|
-| 框架 | Vue 3.5 + TypeScript 5.9 | |
+| 前端框架 | Vue 3.5 + TypeScript 5.9 | |
 | 构建 | Vite 7.3 | |
 | UI | Vuetify 3.13 | 设计稿是 M3 风格（主色 `#6750A4` 正好是 M3 baseline primary），Vuetify 的 M3 组件吻合度最高 |
 | 路由 | Vue Router 4.6 | |
 | 状态 | Pinia 3.0 | |
 | 图标 | `@mdi/font` | 与 M3 图标同族 |
+| 后端 | FastAPI 0.162 + SQLModel + SQLite | 同步链路，不引 greenlet/aiosqlite；真实 AI 生态（LangChain/向量库）在 Python 侧 |
+| 后端隔离 | `server/.venv`（uv 创建） | 不碰 Anaconda 全局 site-packages |
 
-> 依赖都锁在「已知稳定的大版本线」上，没有跟进 Vite 8 / TS 7 / ESLint 10 / Vuetify 4 这些新大版本。
+> 前端依赖都锁在「已知稳定的大版本线」上，没有跟进 Vite 8 / TS 7 / ESLint 10 / Vuetify 4 这些新大版本。
 
 ## 起步
 
 ```bash
 pnpm install
-pnpm dev          # http://127.0.0.1:5273
-pnpm typecheck    # vue-tsc 全量类型检查
-pnpm lint         # eslint 扁平配置
-pnpm build        # 类型检查 + 产出 dist/
-pnpm format       # prettier
+pnpm dev            # 前端 http://127.0.0.1:5273
+pnpm dev:server     # 后端 http://127.0.0.1:5274/docs（另开一个终端）
+
+pnpm typecheck      # vue-tsc 全量类型检查
+pnpm lint           # eslint 扁平配置
+pnpm build          # 类型检查 + 产出 dist/
+pnpm test:server    # 后端 pytest 冒烟测试
 ```
 
-环境要求：Node ≥ 20.19（当前用 v24.19）。项目自带 `.npmrc`（npmmirror 源）与 `pnpm-workspace.yaml`（放行 esbuild 的安装脚本），只作用于本目录。
+前端只写 `/api/...`，由 Vite 代理到 5274（见 `vite.config.ts`），所以浏览器里不存在跨域。
+
+环境要求：Node ≥ 20.19（当前 v24.19）、Python 3.14（Anaconda）+ 项目内 venv。项目自带 `.npmrc`（npmmirror 源）与 `pnpm-workspace.yaml`（放行 esbuild 的安装脚本），只作用于本目录。
 
 ## 目录约定
 
 ```
-src/
+src/                      前端
 ├─ app/
 │  ├─ layouts/         AppShell / ShellTopbar / ShellSidebar（布局壳）
 │  └─ router/          routes.ts（31 条路由 + meta 规格）/ nav.ts（侧栏 11 项）/ skeletons.ts
@@ -44,10 +50,21 @@ src/
 ├─ features/           域内复杂组件（画布/对话/图表，P9/P10 建）
 ├─ styles/             tokens.css（设计令牌）/ base.css（重置+工具类）
 ├─ plugins/            vuetify.ts（主题）
-├─ api/                接口层唯一出口（P12 建，mock 与真后端靠 adapter 切换）
+├─ api/                接口层唯一出口（P5 起用，mock 与真后端靠 adapter 切换）
 ├─ mock/               假数据（P5 起逐步加）
 ├─ stores/             Pinia
 └─ types/              router.d.ts 等类型声明
+
+server/                   后端（详见 server/README.md）
+├─ app/
+│  ├─ main.py          入口：建表 → 灌种子 → 挂路由 → CORS
+│  ├─ models.py        13 张表
+│  ├─ schemas.py       Page[T] 分页信封 + 各实体 *Create
+│  ├─ seed.py          种子数据（名字与数字照抄截图）
+│  └─ api/
+│     ├─ crud.py       通用 CRUD 工厂（分页/搜索/筛选/详情/改/删）
+│     └─ v1/           resources · system · auth · llmops · knowledge_ops · workflow_ops
+└─ tests/              pytest 冒烟（临时库，不污染 data/app.db）
 ```
 
 ### 几条硬约定
@@ -56,7 +73,8 @@ src/
 2. **侧栏高亮按 `route.meta.navKey` 判定**，不按菜单文案——原型有 2 处高亮错位，这里已纠正。
 3. **路由 meta 带规格**：`title / subtitle / module / navKey / skeleton / phase / screen / todo`。占位页会把它渲染成一张「规格卡」，实现完一页就把 `todo` 清空。
 4. **原型自身的 bug 不照抄**：表头错位、状态跨页矛盾、画布无边线、字段英文、`API 密钥` 被截断等，详见 `docs/01-页面清单.md` 末节。
-5. **知识库 ≠ 数据集**，是两个独立实体，不能共用 store 或表结构。
+5. **知识库 ≠ 数据集**，是两个独立实体，不能共用 store 或表结构（后端是 `knowledge_bases` 与 `datasets` 两张表）。
+6. **状态字段存中文原值**，颜色映射只在前端 `StatusBadge` 做，后端不做视觉决策。
 
 ## 阶段进度
 
@@ -65,9 +83,10 @@ src/
 | P0 | 工程基建（Vite + TS + ESLint + Prettier + 目录） | ✅ |
 | P1 | 布局骨架 + 31 条路由占位 + 占位页规格卡 | ✅ |
 | P2 | 设计令牌 + Vuetify 主题 + 字体/图标 | ✅ |
+| **P4.5** | **FastAPI + SQLite 后端：13 表 / 9 实体 CRUD / 种子数据 / 冒烟测试** | **✅** |
 | P3 | 基础组件 A（骨架 / 数据展示） | ⬜ |
 | P4 | 基础组件 B（表单 / 反馈） | ⬜ |
-| P5 | 列表页族（7 页） | ⬜ |
+| P5 | 列表页族（7 页，直接打真接口） | ⬜ |
 | P6 | 详情页族（6 页 + 4 厂商详情） | ⬜ |
 | P7 | 创建页族（含 7 个配置模板） | ⬜ |
 | P8 | 探索 + 插件市场（卡片网格） | ⬜ |
@@ -87,4 +106,4 @@ src/
 | [05-接口与数据模型草案](docs/05-接口与数据模型草案.md) | 24 实体、96 条接口、24 份 Mock JSON、SSE 约定、Pinia 划分 |
 | [_ref/recording-walkthrough.md](_ref/recording-walkthrough.md) | 85 秒录屏逐秒还原 |
 
-`_ref/` 下是原始素材：62 张截图、逐秒抽帧、以及 `_spec/` 里 62 页的逐张规格 JSON（`frames/`、`_spec/` 已在 `.gitignore` 中排除）。
+`_ref/` 下是原始素材：62 张截图、逐秒抽帧，以及 `_spec/` 里 62 页的逐张规格 JSON。抽帧与规格 JSON 已在 `.gitignore` 中排除。

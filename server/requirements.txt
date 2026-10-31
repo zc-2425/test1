@@ -1,0 +1,8 @@
+# 运行时依赖（安装在 server/.venv，不碰 Anaconda 全局环境）
+fastapi>=0.142
+uvicorn>=0.40
+sqlmodel>=0.0.27
+pydantic>=2.13
+pydantic-settings>=2.14
+python-multipart>=0.0.20
+httpx>=0.28

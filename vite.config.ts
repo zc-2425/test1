@@ -18,7 +18,14 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5273,
     strictPort: false,
-    open: false
+    open: false,
+    // 前端只认 /api，由 Vite 代理到本地 FastAPI（server/ 目录）
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:5274',
+        changeOrigin: true
+      }
+    }
   },
   build: {
     outDir: 'dist',

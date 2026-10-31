@@ -1,0 +1,17 @@
+# Python 后端专用忽略规则（不改动仓库根目录的 .gitignore）
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# 本地数据与上传，不入库
+data/
+uploads/
+
+# 测试临时库
+.pytest_tmp/
+ai-agent-platform-test-*/
+
+# 本地环境变量（含 API Key）
+.env
