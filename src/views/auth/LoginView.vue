@@ -1,0 +1,320 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const email = ref('')
+const password = ref('')
+const showPassword = ref(false)
+const remember = ref(true)
+
+/**
+ * P1 阶段：视觉骨架先落地（渐变背景 + 卡片 + 表单 + 第三方登录）。
+ * 真实校验、OAuth、找回密码/注册页在 P11 补齐。
+ */
+function submit() {
+  void router.push('/explore')
+}
+
+/** 背景漂浮图标：位置固定写死，避免每次渲染抖动 */
+const bubbles = [
+  { icon: 'mdi-robot-outline', x: 8, y: 62, s: 52 },
+  { icon: 'mdi-chart-line', x: 24, y: 78, s: 46 },
+  { icon: 'mdi-robot-happy-outline', x: 55, y: 66, s: 44 },
+  { icon: 'mdi-creation', x: 62, y: 72, s: 40 },
+  { icon: 'mdi-robot-vacuum', x: 70, y: 53, s: 50 },
+  { icon: 'mdi-atom', x: 88, y: 48, s: 44 },
+  { icon: 'mdi-brain', x: 32, y: 40, s: 38 },
+  { icon: 'mdi-flash-outline', x: 78, y: 84, s: 40 }
+]
+</script>
+
+<template>
+  <div class="login">
+    <div class="login__bg">
+      <span
+        v-for="(b, i) in bubbles"
+        :key="i"
+        class="login__bubble"
+        :style="{
+          left: `${b.x}%`,
+          top: `${b.y}%`,
+          width: `${b.s}px`,
+          height: `${b.s}px`,
+          fontSize: `${b.s * 0.45}px`
+        }"
+      >
+        <i :class="['mdi', b.icon]" aria-hidden="true" />
+      </span>
+    </div>
+
+    <section class="login__card">
+      <span class="login__card-accent" />
+
+      <div class="login__brand">
+        <span class="login__logo">
+          <i class="mdi mdi-robot-happy-outline" aria-hidden="true" />
+        </span>
+        <h1 class="login__title">AI智能体应用开发平台</h1>
+        <p class="login__subtitle">构建未来，从智能开始</p>
+      </div>
+
+      <form class="login__form" @submit.prevent="submit">
+        <v-text-field
+          v-model="email"
+          label="邮箱地址"
+          prepend-inner-icon="mdi-email-outline"
+          type="email"
+          autocomplete="username"
+          density="comfortable"
+        />
+
+        <v-text-field
+          v-model="password"
+          label="密码"
+          prepend-inner-icon="mdi-lock-outline"
+          :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
+          :type="showPassword ? 'text' : 'password'"
+          autocomplete="current-password"
+          density="comfortable"
+          @click:append-inner="showPassword = !showPassword"
+        />
+
+        <div class="login__options">
+          <label class="login__remember">
+            <input v-model="remember" type="checkbox" />
+            <span>记住我</span>
+          </label>
+          <a class="login__link" href="#" @click.prevent>忘记密码?</a>
+        </div>
+
+        <button type="submit" class="login__submit">登录</button>
+      </form>
+
+      <div class="login__divider">
+        <span>或者使用</span>
+      </div>
+
+      <div class="login__oauth">
+        <button type="button" class="login__oauth-btn login__oauth-btn--google">
+          <i class="mdi mdi-google" aria-hidden="true" />
+          <span>Google</span>
+        </button>
+        <button type="button" class="login__oauth-btn">
+          <i class="mdi mdi-github" aria-hidden="true" />
+          <span>GitHub</span>
+        </button>
+      </div>
+
+      <p class="login__footer">
+        还没有账户?
+        <a class="login__link" href="#" @click.prevent>立即注册</a>
+      </p>
+    </section>
+  </div>
+</template>
+
+<style scoped>
+.login {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-6);
+  background: var(--gradient-auth);
+  overflow: hidden;
+}
+
+.login__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.login__bubble {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  transform: translate(-50%, -50%);
+}
+
+.login__card {
+  position: relative;
+  width: 400px;
+  max-width: 100%;
+  padding: var(--spacing-8) var(--spacing-8) var(--spacing-6);
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(43, 28, 90, 0.28);
+  overflow: hidden;
+  text-align: center;
+}
+
+.login__card-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f2e1f9 0%, #e3b8f5 45%, #cfa6f0 100%);
+}
+
+.login__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--spacing-6);
+}
+
+.login__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b78e6 0%, #6b4fa8 100%);
+  color: #fff;
+  font-size: 28px;
+  margin-bottom: var(--spacing-3);
+  box-shadow: 0 6px 16px rgba(107, 79, 168, 0.35);
+}
+
+.login__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-primary);
+  letter-spacing: 0.2px;
+}
+
+.login__subtitle {
+  margin-top: var(--spacing-1);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  text-align: left;
+}
+
+.login__options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--spacing-1) 0 var(--spacing-3);
+}
+
+.login__remember {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.login__remember input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.login__link {
+  font-size: 13px;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.login__link:hover {
+  text-decoration: underline;
+}
+
+.login__submit {
+  width: 100%;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-auth);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: filter var(--motion-fast) var(--motion-ease);
+}
+
+.login__submit:hover {
+  filter: brightness(1.06);
+}
+
+.login__divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--spacing-5) 0 var(--spacing-4);
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.login__divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--color-divider);
+}
+
+.login__divider span {
+  position: relative;
+  padding: 0 var(--spacing-2);
+  background: #fff;
+}
+
+.login__oauth {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-3);
+}
+
+.login__oauth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+
+.login__oauth-btn:hover {
+  border-color: var(--color-primary-light);
+}
+
+.login__oauth-btn--google {
+  color: #db4437;
+}
+
+.login__footer {
+  margin-top: var(--spacing-5);
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+</style>
