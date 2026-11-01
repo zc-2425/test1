@@ -310,79 +310,69 @@ export const shellRoutes: RouteRecordRaw[] = [
   },
 
   // ================= LLMOps =================
+  // 5 个 Tab 共用一个布局（标题 + Tab + 两个 query 驱动的弹窗），所以做成父路由 + children
   {
-    path: 'llmops/overview',
-    name: 'llmops-overview',
-    component: Stub,
+    path: 'llmops',
+    component: () => import('@/views/llmops/LlmopsLayout.vue'),
+    redirect: '/llmops/overview',
     meta: {
       title: 'LLMOps 运维中心',
       module: 'LLMOps监控',
       navKey: 'llmops',
-      skeleton: 'A2',
-      phase: 'P10',
-      screen: '08-LLMOps监控-概览.png',
-      todo: [
-        '5 个 Tab：概览/模型监控/成本管理/AB测试/安全合规',
-        '6 个统计卡 + 左右双列（健康状态 + 告警）',
-        '?alerts=1 告警中心弹窗、?settings=1 设置弹窗'
-      ]
-    }
-  },
-  {
-    path: 'llmops/models',
-    name: 'llmops-models',
-    component: Stub,
-    meta: {
-      title: '模型性能监控',
-      module: 'LLMOps监控',
-      navKey: 'llmops',
-      skeleton: 'A2',
-      phase: 'P10',
-      screen: '08-LLM-模型监控.png',
-      todo: ['卡头含时间范围 + 刷新', '8 列表格']
-    }
-  },
-  {
-    path: 'llmops/cost',
-    name: 'llmops-cost',
-    component: Stub,
-    meta: {
-      title: '成本分析管理',
-      module: 'LLMOps监控',
-      navKey: 'llmops',
-      skeleton: 'A2',
-      phase: 'P10',
-      screen: '08-LLM-成本管理.png',
-      todo: ['左折线图（ECharts，系列色 #1976D2）+ 右预算设置', '金额用等宽字体']
-    }
-  },
-  {
-    path: 'llmops/ab-test',
-    name: 'llmops-ab-test',
-    component: Stub,
-    meta: {
-      title: 'A/B 测试管理',
-      module: 'LLMOps监控',
-      navKey: 'llmops',
-      skeleton: 'A2',
-      phase: 'P10',
-      screen: '08-LLM-AB测试.png',
-      todo: ['卡头「创建新测试」（弹窗原型未画，需补）', '7 列表格']
-    }
-  },
-  {
-    path: 'llmops/security',
-    name: 'llmops-security',
-    component: Stub,
-    meta: {
-      title: '安全合规',
-      module: 'LLMOps监控',
-      navKey: 'llmops',
-      skeleton: 'A2',
-      phase: 'P10',
-      screen: '08-LLM-安全合规.png',
-      todo: ['双栏：安全监控/合规检查 + 访问日志/安全设置']
-    }
+      phase: 'P10'
+    },
+    children: [
+      {
+        path: 'overview',
+        name: 'llmops-overview',
+        component: () => import('@/views/llmops/LlmopsOverviewView.vue'),
+        meta: {
+          title: 'LLMOps 运维中心',
+          module: 'LLMOps监控',
+          navKey: 'llmops'
+        }
+      },
+      {
+        path: 'models',
+        name: 'llmops-models',
+        component: () => import('@/views/llmops/LlmopsModelsView.vue'),
+        meta: {
+          title: '模型性能监控',
+          module: 'LLMOps监控',
+          navKey: 'llmops'
+        }
+      },
+      {
+        path: 'cost',
+        name: 'llmops-cost',
+        component: () => import('@/views/llmops/LlmopsCostView.vue'),
+        meta: {
+          title: '成本分析管理',
+          module: 'LLMOps监控',
+          navKey: 'llmops'
+        }
+      },
+      {
+        path: 'ab-test',
+        name: 'llmops-ab-test',
+        component: () => import('@/views/llmops/LlmopsAbTestView.vue'),
+        meta: {
+          title: 'A/B 测试管理',
+          module: 'LLMOps监控',
+          navKey: 'llmops'
+        }
+      },
+      {
+        path: 'security',
+        name: 'llmops-security',
+        component: () => import('@/views/llmops/LlmopsSecurityView.vue'),
+        meta: {
+          title: '安全合规',
+          module: 'LLMOps监控',
+          navKey: 'llmops'
+        }
+      }
+    ]
   },
 
   // ================= 插件市场 =================

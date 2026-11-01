@@ -11,7 +11,7 @@
 | UI | Vuetify 3.13 | 设计稿是 M3 风格（主色 `#6750A4` 正好是 M3 baseline primary），Vuetify 的 M3 组件吻合度最高 |
 | 路由 | Vue Router 4.6 | |
 | 状态 | Pinia 3.0 | |
-| 图标 | `@mdi/font` | 与 M3 图标同族 |
+| 图标 | `@mdi/font` | 与 M3 图标同族 |`n| 图表 | ECharts 6（按需引入） | LLMOps 的折线/柱状/堆叠图；只注册 line/bar/pie + 必要组件，单独懒加载 chunk 约 95KB gzip |
 | 后端 | FastAPI 0.162 + SQLModel + SQLite | 同步链路，不引 greenlet/aiosqlite；真实 AI 生态（LangChain/向量库）在 Python 侧 |
 | 后端隔离 | `server/.venv`（uv 创建） | 不碰 Anaconda 全局 site-packages |
 
@@ -98,7 +98,7 @@ server/                   后端（详见 server/README.md）
 | P7 | 创建页族：知识库/Agent/工具创建 + 8 个配置模板 + 工作流模板页与创建弹窗 | ✅ |
 | P8 | 探索（模板广场，16 个模板 + 收藏）+ 插件市场（12 个插件，安装真写库） | ✅ |
 | P9 | 编辑器族：提示词编辑器（流式测试）+ 自研工作流画布（拖拽/连线/缩放/属性面板） | ✅ |
-| P10 | LLMOps 五 Tab + 两个全局弹窗 | ⬜ |
+| P10 | LLMOps 五 Tab（ECharts 图表 + 真数据聚合）+ 告警/设置弹窗 | ✅ |
 | P11 | 登录页打磨 + 路由守卫 | ⬜ |
 | P12 | 真调用可插拔（SSE / 工作流运行 / 厂商连通性测试） | ⬜ |
 
