@@ -105,7 +105,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'workflow/:id/canvas',
     name: 'workflow-canvas',
-    component: Stub,
+    component: () => import('@/views/workflow/WorkflowCanvasView.vue'),
     meta: {
       title: '工作流编辑器',
       module: '工作流',
@@ -293,7 +293,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'prompt/:id/edit',
     name: 'prompt-edit',
-    component: Stub,
+    component: () => import('@/views/prompt/PromptEditView.vue'),
     meta: {
       title: '提示词编辑器',
       module: '提示词工程',
