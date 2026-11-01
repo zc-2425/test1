@@ -1,20 +1,64 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ApiError } from '@/api/http'
+import { useAuth } from '@/composables/useAuth'
+import { toast } from '@/composables/useToast'
 
 const router = useRouter()
+const route = useRoute()
+const { login } = useAuth()
 
-const email = ref('')
+const identifier = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const remember = ref(true)
+const submitting = ref(false)
+const formError = ref<string | null>(null)
+
+/** 演示账号：登录页显式写出来，省得每次翻文档 */
+const DEMO = { account: 'admin', password: 'admin123' }
+
+function fillDemo(): void {
+  identifier.value = DEMO.account
+  password.value = DEMO.password
+  formError.value = null
+}
 
 /**
- * P1 阶段：视觉骨架先落地（渐变背景 + 卡片 + 表单 + 第三方登录）。
- * 真实校验、OAuth、找回密码/注册页在 P11 补齐。
+ * 真登录：调后端 /api/auth/login，成功后回到来源路由（?redirect=）。
+ * 校验放在前端做一遍是为了即时反馈，真正的判定仍在后端。
  */
-function submit() {
-  void router.push('/explore')
+async function submit(): Promise<void> {
+  formError.value = null
+
+  if (!identifier.value.trim()) {
+    formError.value = '请输入邮箱地址或用户名'
+    return
+  }
+  if (password.value.length < 5) {
+    formError.value = '密码至少 5 位'
+    return
+  }
+
+  submitting.value = true
+  try {
+    await login(identifier.value, password.value, remember.value)
+    toast('登录成功', {
+      tone: 'success',
+      description: `欢迎回来，${identifier.value.trim()}`
+    })
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/explore'
+    await router.replace(redirect)
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 401) {
+      formError.value = '邮箱或密码不正确'
+    } else {
+      formError.value = cause instanceof Error ? cause.message : String(cause)
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 
 /** 背景漂浮图标：位置固定写死，避免每次渲染抖动 */
@@ -65,7 +109,7 @@ const bubbles = [
           <label class="login__label" for="login-email">邮箱地址</label>
           <v-text-field
             id="login-email"
-            v-model="email"
+            v-model="identifier"
             prepend-inner-icon="mdi-email-outline"
             type="email"
             autocomplete="username"
@@ -97,7 +141,12 @@ const bubbles = [
           <a class="login__link" href="#" @click.prevent>忘记密码?</a>
         </div>
 
-        <button type="submit" class="login__submit">登录</button>
+        <p v-if="formError" class="login__error" role="alert">{{ formError }}</p>
+
+        <button type="submit" class="login__submit" :disabled="submitting">
+          <span v-if="!submitting">登录</span>
+          <span v-else class="login__spinner" aria-hidden="true" />
+        </button>
       </form>
 
       <div class="login__divider">
@@ -114,6 +163,11 @@ const bubbles = [
           <span>GitHub</span>
         </button>
       </div>
+
+      <p class="login__demo">
+        演示账号 <code>{{ DEMO.account }} / {{ DEMO.password }}</code>
+        <button type="button" class="login__demo-fill" @click="fillDemo">填入</button>
+      </p>
 
       <p class="login__footer">
         还没有账户?
@@ -351,5 +405,62 @@ const bubbles = [
   margin-top: var(--spacing-5);
   font-size: 13px;
   color: var(--color-text-tertiary);
+}
+.login__error {
+  margin: 0 0 var(--spacing-2);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--status-danger-bg);
+  color: var(--status-danger);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.login__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: login-spin 0.7s linear infinite;
+}
+
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login__submit:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.7);
+}
+
+.login__demo {
+  margin-top: var(--spacing-4);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.login__demo code {
+  font-family: var(--font-family-mono);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-low);
+  color: var(--color-text-secondary);
+}
+
+.login__demo-fill {
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
 }
 </style>

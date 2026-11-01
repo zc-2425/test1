@@ -544,6 +544,7 @@ const loginRoute: RouteRecordRaw = {
     title: '登录',
     module: '登录',
     skeleton: 'L0',
+    public: true,
     phase: 'P11',
     blank: true,
     screen: '01-登录.png'

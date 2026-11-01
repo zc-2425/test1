@@ -19,13 +19,19 @@ ALLOWED_PASSWORDS = {"admin": "admin123", "developer": "dev123", "viewer": "view
 
 @router.post("/login", response_model=LoginOut)
 def login(payload: LoginIn, session: Session = Depends(get_session)) -> LoginOut:
-    expected = ALLOWED_PASSWORDS.get(payload.username)
-    if expected is None or payload.password != expected:
+    # 登录页的字段叫「邮箱地址」，所以 username / email 都接受
+    identifier = payload.username.strip()
+    user = session.exec(
+        select(models.User).where(
+            (models.User.username == identifier) | (models.User.email == identifier)
+        )
+    ).first()
+    if user is None:
         raise HTTPException(status_code=401, detail="用户名或密码错误")
 
-    user = session.exec(select(models.User).where(models.User.username == payload.username)).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="用户不存在")
+    expected = ALLOWED_PASSWORDS.get(user.username)
+    if expected is None or payload.password != expected:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
 
     return LoginOut(
         token=f"dev-{user.username}",

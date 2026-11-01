@@ -1,4 +1,4 @@
-"""冒烟测试：覆盖健康检查、9 个 CRUD 的分页/搜索/筛选、详情 404、创建→改→删闭环、
+﻿"""冒烟测试：覆盖健康检查、9 个 CRUD 的分页/搜索/筛选、详情 404、创建→改→删闭环、
 工作流运行、LLMOps 聚合、登录。目的是「接口形状与种子数据都对了」，不做业务边界穷举。
 """
 
@@ -166,3 +166,15 @@ def test_sort_order_both_directions(client: TestClient) -> None:
     # 不存在的排序字段回落到 id，不报 500
     fallback = client.get("/api/workflows", params={"sort": "not_a_field"}).json()
     assert fallback["total"] == 8
+
+def test_login_accepts_email(client: TestClient) -> None:
+    """登录页字段写的是「邮箱地址」，所以邮箱也要能登录。"""
+    resp = client.post(
+        "/api/auth/login", json={"username": "admin@example.com", "password": "admin123"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["token"] == "dev-admin"
+
+    # 账号不存在与密码错误返回同一个 401，避免泄露账号是否存在
+    bad = client.post("/api/auth/login", json={"username": "nobody", "password": "x"})
+    assert bad.status_code == 401

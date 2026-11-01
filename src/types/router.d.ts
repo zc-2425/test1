@@ -24,6 +24,8 @@ declare module 'vue-router' {
     screen?: string
     /** 本页待办要点，占位页上直接展示 */
     todo?: string[]
+    /** 免登录页（登录页自身） */
+    public?: boolean
     /** 配置模板页使用的 schema key（工具模板走独立路由，没有 :key 参数） */
     templateKey?: string
     /** 隐藏侧边栏（画布页专用） */

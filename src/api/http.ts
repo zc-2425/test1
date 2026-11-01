@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 接口层唯一出口（P12 的「可插拔」就靠这一层）。
  *
  * 约定：
@@ -72,8 +72,8 @@ function safeJson(text: string): unknown {
   }
 }
 
-export function apiGet<T>(path: string, params?: Query): Promise<T> {
-  return request<T>(path, { method: 'GET', params })
+export function apiGet<T>(path: string, params?: Query, init?: RequestInit): Promise<T> {
+  return request<T>(path, { method: 'GET', params, ...init })
 }
 
 export function apiPost<T>(path: string, body?: unknown): Promise<T> {

@@ -30,6 +30,7 @@ function parseArgs(argv) {
     width: 1600,
     height: 1000,
     js: '',
+    click: '',
     wait: 800,
     edge: ''
   }
@@ -159,6 +160,37 @@ try {
     }
     // 交互后再等一会儿，让过渡动画走完
     await sleep(500)
+  }
+
+  if (args.click) {
+    // 用 CDP 的 Input 域发真实鼠标事件：JS 的 el.click() 在无头环境里
+    // 不会触发原生表单提交，只有可信事件才走得通
+    const rect = await client.send('Runtime.evaluate', {
+      expression: `(() => {
+        const el = document.querySelector(${JSON.stringify(args.click)})
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+      })()`,
+      returnByValue: true
+    })
+    const point = rect.result?.value
+    if (!point) throw new Error(`找不到要点击的元素：${args.click}`)
+    await client.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x: point.x,
+      y: point.y,
+      button: 'left',
+      clickCount: 1
+    })
+    await client.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x: point.x,
+      y: point.y,
+      button: 'left',
+      clickCount: 1
+    })
+    await sleep(900)
   }
 
   const shot = await client.send('Page.captureScreenshot', { format: 'png' })

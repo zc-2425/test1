@@ -1,9 +1,26 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
+import { toast } from '@/composables/useToast'
 
 const router = useRouter()
+const { user, logout: clearSession } = useAuth()
+
+/** 没有会话时（理论上会被守卫挡住）退化成 Admin，避免顶部出现空白 */
+const displayName = computed(() => user.value?.displayName ?? 'Admin')
+const roleLabel = computed(() => {
+  const role = user.value?.role
+  if (role === 'admin') return '管理员'
+  if (role === 'developer') return '开发者'
+  if (role === 'viewer') return '只读'
+  return ''
+})
 
 function logout() {
+  const name = displayName.value
+  clearSession()
+  toast('已退出登录', { tone: 'info', description: name })
   void router.push('/login')
 }
 </script>
@@ -24,12 +41,12 @@ function logout() {
             <span class="topbar__avatar">
               <i class="mdi mdi-account" aria-hidden="true" />
             </span>
-            <span class="topbar__user-name">Admin</span>
+            <span class="topbar__user-name">{{ displayName }}</span>
             <i class="mdi mdi-chevron-down topbar__caret" aria-hidden="true" />
           </button>
         </template>
         <v-list density="compact" min-width="160">
-          <v-list-item prepend-icon="mdi-account-outline" title="个人信息" />
+          <v-list-item prepend-icon="mdi-account-outline" title="个人信息" :subtitle="roleLabel" />
           <v-list-item prepend-icon="mdi-cog-outline" title="设置" />
           <v-divider class="my-1" />
           <v-list-item prepend-icon="mdi-logout" title="退出登录" @click="logout" />
