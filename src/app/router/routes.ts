@@ -29,7 +29,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'explore',
     name: 'explore',
-    component: Stub,
+    component: () => import('@/views/explore/ExploreView.vue'),
     meta: {
       title: '探索 AI 模板',
       subtitle: '发现并使用各种 AI 模板，快速构建您的智能应用，从对话机器人到数据分析，应有尽有。',
@@ -389,7 +389,7 @@ export const shellRoutes: RouteRecordRaw[] = [
   {
     path: 'plugin/market',
     name: 'plugin-market',
-    component: Stub,
+    component: () => import('@/views/plugin/PluginMarketView.vue'),
     meta: {
       title: '插件市场',
       module: '插件市场',
