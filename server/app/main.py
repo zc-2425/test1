@@ -1,4 +1,4 @@
-"""FastAPI 应用入口。
+﻿"""FastAPI 应用入口。
 
 启动流程：建表 → 库为空则灌种子数据 → 挂载路由。
 本地开发：uvicorn app.main:app --reload --port 5274
@@ -12,7 +12,16 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
-from app.api.v1 import auth, knowledge_ops, llmops, resources, system, workflow_ops
+from app.api.v1 import (
+    auth,
+    chat,
+    knowledge_ops,
+    llmops,
+    provider_ops,
+    resources,
+    system,
+    workflow_ops,
+)
 from app.core.config import get_settings
 from app.db import create_db_and_tables, engine
 from app.seed import seed_if_empty
@@ -53,6 +62,8 @@ api_router.include_router(resources.router)
 api_router.include_router(llmops.router)
 api_router.include_router(knowledge_ops.router)
 api_router.include_router(workflow_ops.router)
+api_router.include_router(chat.router)
+api_router.include_router(provider_ops.router)
 
 app.include_router(api_router)
 

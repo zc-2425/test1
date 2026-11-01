@@ -178,3 +178,54 @@ def test_login_accepts_email(client: TestClient) -> None:
     # 账号不存在与密码错误返回同一个 401，避免泄露账号是否存在
     bad = client.post("/api/auth/login", json={"username": "nobody", "password": "x"})
     assert bad.status_code == 401
+
+def test_chat_status_reports_mode(client: TestClient) -> None:
+    body = client.get("/api/chat/status").json()
+    assert body["mode"] == "mock"
+    assert body["useReal"] is False
+    assert body["hasKey"] is False
+
+
+def test_chat_stream_emits_sse_events(client: TestClient) -> None:
+    """没有 Key 时必须回落 mock，并且在 result 事件里如实回报 mode。"""
+    with client.stream(
+        "POST", "/api/chat/stream", json={"prompt": "你是助手", "input": "你好"}
+    ) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        payload = "".join(response.iter_text())
+
+    assert '[DONE]' in payload
+
+    # SSE 里每片 delta 是独立 JSON，必须拼回全文再断言
+    import json
+
+    text = ''
+    result: dict = {}
+    for line in payload.splitlines():
+        if not line.startswith('data:') or line.strip() == 'data: [DONE]':
+            continue
+        event = json.loads(line[5:].strip())
+        if event.get('type') == 'delta':
+            text += event.get('content', '')
+        elif event.get('type') == 'result':
+            result = event
+
+    assert result.get('mode') == 'mock'
+    assert result['usage']['completionTokens'] > 0
+    # 模拟输出里应带上「未配置 Key」的说明，而不是假装成真的
+    assert '未配置模型 API Key' in text
+
+
+def test_provider_test_without_key(client: TestClient) -> None:
+    body = client.post("/api/providers/prov-001/test").json()
+    assert body["ok"] is False
+    assert body["needsKey"] is True
+    assert body["envVar"] == "APP_OPENAI_API_KEY"
+
+
+def test_provider_test_rejects_unknown_slug(client: TestClient) -> None:
+    # google 不在支持列表里，应给出「不支持」而不是假装成功
+    body = client.post("/api/providers/prov-003/test").json()
+    assert body["ok"] is False
+    assert body["supported"] is False

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 开发期截图工具：用系统自带 Edge 的 CDP 协议打开页面 → 执行一段 JS（可点按钮）→ 截图。
  *
  * 为什么需要它：toast / 弹窗 / 抽屉 / 确认框这类东西只有真点击才会出现，
@@ -32,7 +32,9 @@ function parseArgs(argv) {
     js: '',
     click: '',
     wait: 800,
-    edge: ''
+    edge: '',
+    /** 传了就用固定的浏览器 profile（保持登录态），传空则每次随机 */
+    profile: ''
   }
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i]
@@ -56,7 +58,9 @@ if (!edgePath) {
 }
 
 const port = 9300 + Math.floor(Math.random() * 400)
-const profile = `C:/Users/${process.env.USERNAME ?? 'HP'}/AppData/Local/Temp/edge-cdp-${randomUUID()}`
+// 复用同一个 profile 可以保持 localStorage 里的登录态，方便验证需要登录的页面
+const profileSuffix = args.profile || randomUUID()
+const profile = `C:/Users/${process.env.USERNAME ?? 'HP'}/AppData/Local/Temp/edge-cdp-${profileSuffix}`
 
 const child = spawn(
   edgePath,

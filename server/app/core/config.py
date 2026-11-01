@@ -1,4 +1,4 @@
-"""应用配置：全部来自环境变量或 server/.env，不读系统级配置。"""
+﻿"""应用配置：全部来自环境变量或 server/.env，不读系统级配置。"""
 
 from functools import lru_cache
 from pathlib import Path
@@ -36,9 +36,20 @@ class Settings(BaseSettings):
         "http://127.0.0.1:4173",
     ]
 
-    # P12 才会用到；留空表示走 mock 实现
+    # ===== LLM 调用 =====
+    # auto：有 Key 走真调用，没 Key 回落 mock；real：强制真调用（没 Key 直接报错）；mock：强制模拟
+    llm_mode: str = "auto"
+    llm_default_provider: str = "deepseek"
+    llm_default_model: str = "deepseek-chat"
+    llm_timeout: float = 60.0
+
+    # Key 只从环境变量 / .env 读，绝不落库（库里只存掩码）
     deepseek_api_key: str | None = None
-    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    # 本地 Ollama 不需要 Key
+    ollama_base_url: str = "http://127.0.0.1:11434/v1"
 
     @property
     def database_url(self) -> str:

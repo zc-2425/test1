@@ -13,6 +13,7 @@ import {
 } from '@/components/ui'
 import type { OperationItem } from '@/components/ui'
 import { providersApi } from '@/api/resources'
+import { testProvider } from '@/api/providers'
 import type { ProviderDto } from '@/api/types'
 import { useResource } from '@/composables/useResource'
 import { toast } from '@/composables/useToast'
@@ -62,13 +63,25 @@ async function onOperation(action: string): Promise<void> {
   }
   if (action === 'test') {
     testing.value = true
-    // P12 才会真的打厂商接口；现在按密钥是否存在给出确定性结果
-    await new Promise((resolve) => window.setTimeout(resolve, 600))
-    testing.value = false
-    if (provider.value.api_key_masked) {
-      toast('连接成功', { tone: 'success', description: '密钥有效（模拟）' })
-    } else {
-      toast('连接失败', { tone: 'error', description: '还没有配置 API 密钥' })
+    try {
+      // 真的打一次厂商的 /models：成功会回写 status，列表页徽章跟着变
+      const result = await testProvider(provider.value.id)
+      if (result.ok) {
+        toast('连接成功', {
+          tone: 'success',
+          description: `${result.latencyMs} ms${result.model ? ` · ${result.model}` : ''}`
+        })
+      } else {
+        toast('连接失败', {
+          tone: 'error',
+          description: result.message
+        })
+      }
+      await reload()
+    } catch (cause) {
+      toast('测试失败', { tone: 'error', description: String(cause) })
+    } finally {
+      testing.value = false
     }
     return
   }

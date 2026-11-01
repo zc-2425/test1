@@ -15,7 +15,7 @@ import {
 } from '@/components/ui'
 import type { TabItem } from '@/components/ui'
 import { promptsApi } from '@/api/resources'
-import { streamChat, type ChatUsage } from '@/api/chat'
+import { fetchChatStatus, streamChat, type ChatStatus, type ChatUsage } from '@/api/chat'
 import type { PromptDto } from '@/api/types'
 import { useResource } from '@/composables/useResource'
 import { toast } from '@/composables/useToast'
@@ -47,6 +47,7 @@ const testInput = ref('你们的产品支持私有化部署吗？')
 const output = ref('')
 const usage = ref<ChatUsage | null>(null)
 let controller: AbortController | null = null
+const chatStatus = ref<ChatStatus | null>(null)
 
 const modelSettings = reactive({
   model: 'gpt-4o',
@@ -65,6 +66,15 @@ watch(prompt, (value) => {
 })
 
 const dirty = computed(() => content.value !== saved.content || name.value !== saved.name)
+
+// 后端决定走真模型还是模拟，这里只负责如实展示
+void fetchChatStatus()
+  .then((status) => {
+    chatStatus.value = status
+  })
+  .catch(() => {
+    chatStatus.value = null
+  })
 
 /** 从正文里抽出 {{变量}}，变量管理 Tab 与左侧 chips 共用 */
 const variables = computed(() => {
@@ -211,7 +221,14 @@ function insertVariable(key: string): void {
         </div>
 
         <div class="prompt-edit__right">
-          <AppContentCard title="测试运行" subtitle="本地模拟流式输出，P12 换成真模型">
+          <AppContentCard
+            title="测试运行"
+            :subtitle="
+              chatStatus?.useReal
+                ? `真实调用 · ${chatStatus.provider} / ${chatStatus.model}`
+                : '模拟输出（未配置模型 Key，写入 server/.env 后自动切换真实调用）'
+            "
+          >
             <AppTextarea v-model="testInput" label="输入" :rows="3" />
             <div class="prompt-edit__run">
               <AppButton size="sm" :icon="testing ? 'mdi-stop' : 'mdi-play'" @click="runTest">
@@ -221,6 +238,11 @@ function insertVariable(key: string): void {
                 {{ usage.promptTokens }} → {{ usage.completionTokens }} tokens ·
                 {{ usage.latencyMs }} ms
               </span>
+              <AppTagChip
+                v-if="usage"
+                :label="usage.mode === 'real' ? `真实调用 · ${usage.model}` : '模拟输出'"
+                :tone="usage.mode === 'real' ? 'success' : 'warning'"
+              />
             </div>
             <div class="prompt-edit__output" :class="{ 'is-empty': !output }">
               <template v-if="output">

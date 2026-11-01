@@ -15,6 +15,7 @@
 | 图表 | ECharts 6（按需引入） | LLMOps 的折线/柱状/堆叠图；只注册 line/bar/pie + 必要组件，单独懒加载 chunk 约 95KB gzip |
 | 后端 | FastAPI 0.162 + SQLModel + SQLite | 同步链路，不引 greenlet/aiosqlite；真实 AI 生态（LangChain/向量库）在 Python 侧 |
 | 后端隔离 | `server/.venv`（uv 创建） | 不碰 Anaconda 全局 site-packages |
+| LLM 调用 | OpenAI 兼容协议（DeepSeek / OpenAI / Ollama） | 一个 httpx 流式客户端通吃；没配 Key 时自动回落本地模拟，并在界面上如实标注 |
 
 > 前端依赖都锁在「已知稳定的大版本线」上，没有跟进 Vite 8 / TS 7 / ESLint 10 / Vuetify 4 这些新大版本。
 
@@ -101,7 +102,7 @@ server/                   后端（详见 server/README.md）
 | P9 | 编辑器族：提示词编辑器（流式测试）+ 自研工作流画布（拖拽/连线/缩放/属性面板） | ✅ |
 | P10 | LLMOps 五 Tab（ECharts 图表 + 真数据聚合）+ 告警/设置弹窗 | ✅ |
 | P11 | 登录真实化（邮箱登录 + 校验 + 错误态）+ 路由守卫 + 会话持久化 | ✅ |
-| P12 | 真调用可插拔（SSE / 工作流运行 / 厂商连通性测试） | ⬜ |
+| P12 | 真调用可插拔：真 SSE 对话 / 工作流 LLM 节点真调用 / 厂商连通性真测试 | ✅ |
 
 ## 设计文档
 

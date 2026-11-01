@@ -1,51 +1,54 @@
 /**
- * 对话/生成的流式接口。
+ * 对话/生成的流式接口 —— 真 SSE。
  *
- * 现在这里是**本地模拟**：按字符分片吐出来，带一点抖动，用来把「流式输出」的前端结构
- * 先跑通。P12 换成真调用时，只需要把 `streamChat` 的实现替换成
- * `fetch('/api/chat/stream') + ReadableStream` 读 SSE，函数签名与回调方式都保持不变，
- * 调用方（提示词编辑器、工作流运行面板）一行都不用改。
+ * 走 `POST /api/chat/stream`，后端决定用真模型还是模拟：
+ * - 配了 Key（或 APP_LLM_MODE=real）→ 转发上游 SSE
+ * - 没配 → 本地模拟，并在 result 事件里回报 mode='mock'
+ *
+ * 所以前端**不需要知道**当前是真还是假，只看 result.mode 决定要不要显示「模拟输出」角标。
+ * 这正是 P12 想要的可插拔：换模型、换厂商都不用动前端。
  */
+
+const BASE = import.meta.env.VITE_API_BASE ?? '/api'
+
+export type ChatMode = 'real' | 'mock'
 
 export interface ChatRequest {
   prompt: string
   input: string
   model?: string
+  provider?: string
   temperature?: number
+  maxTokens?: number
 }
 
 export interface ChatUsage {
+  mode: ChatMode
+  provider: string
+  model: string
   promptTokens: number
   completionTokens: number
   latencyMs: number
+  finishReason: string
+}
+
+export interface ChatStatus {
+  mode: 'auto' | 'real' | 'mock'
+  useReal: boolean
+  provider: string
+  model: string | null
+  hasKey: boolean
 }
 
 export interface StreamOptions {
-  /** 用于中途取消（组件卸载或用户点停止） */
   signal?: AbortSignal
-  /** 每片之间的延迟，毫秒 */
-  delayMs?: number
 }
 
-/** 粗略的 token 估算：中文按 1.5 字/token，英文按 4 字符/token */
-export function estimateTokens(text: string): number {
-  const chinese = (text.match(/[\u4e00-\u9fa5]/g) ?? []).length
-  const rest = text.length - chinese
-  return Math.max(1, Math.round(chinese / 1.5 + rest / 4))
-}
-
-function buildReply(request: ChatRequest): string {
-  const question = request.input.trim() || '（空输入）'
-  return [
-    `收到问题：${question}`,
-    '',
-    '根据当前提示词与模型配置，我的回答分三点：',
-    '1. 先确认需求边界，避免答非所问；',
-    '2. 结合知识库召回的分块给出可溯源结论；',
-    '3. 如果信息不足，明确说明缺少什么，而不是编造。',
-    '',
-    '提示：这是本地模拟的流式输出。P12 接入真实模型后，同样的界面会显示真实生成内容。'
-  ].join('\n')
+/** 当前后端的调用方式，用于在界面上标注「真实 / 模拟」 */
+export async function fetchChatStatus(): Promise<ChatStatus> {
+  const response = await fetch(`${BASE}/chat/status`, { headers: { Accept: 'application/json' } })
+  if (!response.ok) throw new Error(`状态查询失败：HTTP ${response.status}`)
+  return (await response.json()) as ChatStatus
 }
 
 export async function streamChat(
@@ -53,22 +56,77 @@ export async function streamChat(
   onDelta: (delta: string) => void,
   options: StreamOptions = {}
 ): Promise<ChatUsage> {
-  const { signal, delayMs = 28 } = options
-  const reply = buildReply(request)
-  const startedAt = performance.now()
-  const chunkSize = 3
+  const response = await fetch(`${BASE}/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({
+      prompt: request.prompt,
+      input: request.input,
+      model: request.model,
+      provider: request.provider,
+      temperature: request.temperature ?? 0.7,
+      max_tokens: request.maxTokens
+    }),
+    signal: options.signal
+  })
 
-  for (let index = 0; index < reply.length; index += chunkSize) {
-    if (signal?.aborted) break
-    onDelta(reply.slice(index, index + chunkSize))
-    // 模拟网络抖动，让流式看起来不像瞬发
-    await new Promise((resolve) => window.setTimeout(resolve, delayMs + Math.random() * 20))
+  if (!response.ok || !response.body) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`请求失败（HTTP ${response.status}）${detail ? `：${detail.slice(0, 200)}` : ''}`)
   }
 
-  const latencyMs = Math.round(performance.now() - startedAt)
-  return {
-    promptTokens: estimateTokens(request.prompt) + estimateTokens(request.input),
-    completionTokens: estimateTokens(reply),
-    latencyMs
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let usage: ChatUsage | null = null
+  let failure: string | null = null
+
+  // SSE 以空行分隔事件；chunk 边界可能把一个事件切成两半，所以按 buffer 累积再切
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const blocks = buffer.split('\n\n')
+    buffer = blocks.pop() ?? ''
+
+    for (const block of blocks) {
+      const dataLine = block
+        .split('\n')
+        .map((line) => line.trim())
+        .find((line) => line.startsWith('data:'))
+      if (!dataLine) continue
+
+      const payload = dataLine.slice(5).trim()
+      if (!payload || payload === '[DONE]') continue
+
+      let event: Record<string, unknown>
+      try {
+        event = JSON.parse(payload) as Record<string, unknown>
+      } catch {
+        continue
+      }
+
+      if (event.type === 'delta') {
+        onDelta(String(event.content ?? ''))
+      } else if (event.type === 'result') {
+        const token = (event.usage ?? {}) as { promptTokens?: number; completionTokens?: number }
+        usage = {
+          mode: (event.mode as ChatMode) ?? 'mock',
+          provider: String(event.provider ?? ''),
+          model: String(event.model ?? ''),
+          promptTokens: Number(token.promptTokens ?? 0),
+          completionTokens: Number(token.completionTokens ?? 0),
+          latencyMs: Number(event.latencyMs ?? 0),
+          finishReason: String(event.finishReason ?? 'stop')
+        }
+      } else if (event.type === 'error') {
+        failure = String(event.message ?? '未知错误')
+      }
+    }
   }
+
+  if (failure) throw new Error(failure)
+  if (!usage) throw new Error('连接中断：没有收到结束事件')
+  return usage
 }
