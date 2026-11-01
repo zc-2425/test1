@@ -11,7 +11,8 @@
 | UI | Vuetify 3.13 | 设计稿是 M3 风格（主色 `#6750A4` 正好是 M3 baseline primary），Vuetify 的 M3 组件吻合度最高 |
 | 路由 | Vue Router 4.6 | |
 | 状态 | Pinia 3.0 | |
-| 图标 | `@mdi/font` | 与 M3 图标同族 |`n| 图表 | ECharts 6（按需引入） | LLMOps 的折线/柱状/堆叠图；只注册 line/bar/pie + 必要组件，单独懒加载 chunk 约 95KB gzip |
+| 图标 | `@mdi/font` | 与 M3 图标同族 |
+| 图表 | ECharts 6（按需引入） | LLMOps 的折线/柱状/堆叠图；只注册 line/bar/pie + 必要组件，单独懒加载 chunk 约 95KB gzip |
 | 后端 | FastAPI 0.162 + SQLModel + SQLite | 同步链路，不引 greenlet/aiosqlite；真实 AI 生态（LangChain/向量库）在 Python 侧 |
 | 后端隔离 | `server/.venv`（uv 创建） | 不碰 Anaconda 全局 site-packages |
 
