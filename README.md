@@ -133,3 +133,24 @@ LLMOps 的指标现在**不再有种子数据**——首次打开是全 0，跑�
 | [_ref/recording-walkthrough.md](_ref/recording-walkthrough.md) | 85 秒录屏逐秒还原 |
 
 `_ref/` 下是原始素材：62 张截图、逐秒抽帧，以及 `_spec/` 里 62 页的逐张规格 JSON。抽帧与规格 JSON 已在 `.gitignore` 中排除。
+
+### 知识库里有什么
+
+`kb-f799629c`「AI 开发参考文档」中已导入 6 篇**真实官方文档**（97 个分块，真 bge-m3 向量）：
+
+| 文档 | 来源 |
+|---|---|
+| deepseek-pricing.md | DeepSeek 官方《模型 & 价格》 |
+| deepseek-chat-api.md | DeepSeek 官方 Chat Completions API 参考 |
+| siliconflow-embeddings.md | 硅基流动 Embeddings 接口文档 |
+| fastapi-dependencies.md | FastAPI 官方《依赖》教程 |
+| fastapi-background-tasks.md | FastAPI 官方《后台任务》教程 |
+| vue-reactivity.md | Vue 3 官方《响应式基础》 |
+
+知识库内容存在本地 `server/data/`（已 gitignore），换机器需要重跑导入：
+
+```bash
+server\.venv\Scripts\python.exe scripts\import-kb-docs.py --kb kb-f799629c
+```
+
+脚本幂等：同名文档默认跳过，`--force` 才会重新上传。

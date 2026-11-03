@@ -427,7 +427,12 @@ async function onOperation(key: string): Promise<void> {
   display: flex;
   align-items: flex-end;
   gap: var(--spacing-3);
-  max-width: 640px;
+  max-width: 720px;
+}
+
+.kb-search > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .kb-hits {
