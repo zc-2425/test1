@@ -1,4 +1,4 @@
-# 依赖
+﻿# 依赖
 node_modules/
 .pnpm-store/
 
@@ -29,3 +29,7 @@ pnpm-debug.log*
 _ref/
 _ref/*.png
 _ref/*.md
+# ---- 密钥文件：绝不入库 ----
+硅基流动.txt
+*密钥*.txt
+*.key.txt

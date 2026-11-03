@@ -82,6 +82,8 @@ class KnowledgeBase(SQLModel, table=True):
     # 已就绪 / 处理中 / 失败
     status: str = "已就绪"
     vector_progress: int = 100
+    # P2：真实分块总数，列表页直接读，不用每次 count
+    chunk_count: int = 0
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 
@@ -290,4 +292,51 @@ class Message(SQLModel, table=True):
     latency_ms: int = 0
     # real | mock
     mode: str = "mock"
+    created_at: datetime = Field(default_factory=_now)
+
+class KnowledgeDoc(SQLModel, table=True):
+    """真实上传的文档。P2 起知识库的「文档列表」读这张表，不再是按 doc_count 编出来的。"""
+
+    __tablename__ = "knowledge_docs"
+
+    id: str = Field(primary_key=True)
+    kb_id: str = Field(index=True)
+    name: str
+    # txt / md / csv / json / pdf
+    file_type: str = "txt"
+    size_bytes: int = 0
+    char_count: int = 0
+    chunk_count: int = 0
+    # 待处理 / 处理中 / 已入库 / 失败
+    status: str = "待处理"
+    error: str | None = None
+    created_at: datetime = Field(default_factory=_now)
+
+
+class DocumentChunk(SQLModel, table=True):
+    """文档切块。文本放这里，向量单独一张表 —— 列表页读文本时不会把 BLOB 一起搬出来。"""
+
+    __tablename__ = "document_chunks"
+
+    id: str = Field(primary_key=True)
+    kb_id: str = Field(index=True)
+    doc_id: str = Field(index=True)
+    # 在文档内的序号，用于「引用第几段」
+    position: int = 0
+    content: str
+    char_count: int = 0
+    created_at: datetime = Field(default_factory=_now)
+
+
+class ChunkEmbedding(SQLModel, table=True):
+    """分块向量。float32 BLOB 存储：1 万块 × 1024 维约 39MB（JSON 会膨胀到 198MB）。"""
+
+    __tablename__ = "chunk_embeddings"
+
+    chunk_id: str = Field(primary_key=True)
+    kb_id: str = Field(index=True)
+    model: str
+    dim: int
+    # float32 小端字节；入库前已 L2 归一化，检索用点积即余弦
+    vector: bytes
     created_at: datetime = Field(default_factory=_now)

@@ -98,12 +98,13 @@ def test_workflow_run_produces_trace(client: TestClient) -> None:
     assert client.get("/api/workflows/wf-001").json()["last_run_at"] is not None
 
 
-def test_knowledge_documents(client: TestClient) -> None:
-    resp = client.get("/api/knowledge-bases/kb-001/documents")
+def test_knowledge_documents_starts_empty(client: TestClient) -> None:
+    """P2 起文档是真实上传的：种子库里没有文档，列表必须为空而不是编 4 条。"""
+    resp = client.get("/api/knowledge-bases/kb-005/documents")
     assert resp.status_code == 200
-    docs = resp.json()
-    assert len(docs) == 4
-    assert docs[0]["status"] == "已入库"  # kb-001 进度 100
+    assert resp.json() == []
+
+    assert client.get("/api/knowledge-bases/kb-404/documents").status_code == 404
 
 
 def test_llmops_aggregations_reflect_real_calls(client: TestClient) -> None:
@@ -297,3 +298,81 @@ def test_traces_endpoint_filters(client: TestClient) -> None:
     assert traces["total"] >= 1
     assert all(item["kind"] == "prompt_test" for item in traces["items"])
     assert all(item["provider"] for item in traces["items"])
+
+def _upload_text(client: TestClient, kb_id: str, name: str, content: str) -> dict:
+    response = client.post(
+        f"/api/knowledge-bases/{kb_id}/documents",
+        files={"file": (name, content.encode("utf-8"), "text/plain")},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_rag_upload_creates_chunks_and_vectors(client: TestClient) -> None:
+    """上传 → 切块 → 向量入库，文档状态变「已入库」，知识库统计同步更新。"""
+    kb = client.get("/api/knowledge-bases/kb-001/documents").json()
+    assert kb == [] or all(item["status"] in {"已入库", "失败"} for item in kb)
+
+    content = "退款政策：签收后七天内可无理由退款。运费由买家承担。\n\n" * 120
+    doc = _upload_text(client, "kb-001", "退款政策.txt", content)
+    assert doc["chunks"] > 1, "长文本应被切成多块"
+    assert doc["status"] == "已入库"
+    assert doc["mode"] == "mock"  # 测试环境强制 mock
+
+    listed = client.get("/api/knowledge-bases/kb-001/documents").json()
+    assert any(item["id"] == doc["id"] for item in listed)
+
+    chunks = client.get(f"/api/knowledge-bases/kb-001/documents/{doc['id']}/chunks").json()
+    assert chunks["total"] == doc["chunks"] > 1
+    assert chunks["chunks"][0]["position"] == 0
+    assert chunks["chunks"][0]["content"]
+
+    kb_row = client.get("/api/knowledge-bases/kb-001").json()
+    assert kb_row["doc_count"] >= 1
+    assert kb_row["chunk_count"] >= doc["chunks"]
+
+
+def test_rag_search_returns_scored_hits(client: TestClient) -> None:
+    """检索要能真的命中：分数降序、带来源文档与片段。"""
+    body = {
+        "query": "退款几天到账",
+        "top_k": 3,
+    }
+    result = client.post("/api/knowledge-bases/kb-001/search", json=body).json()
+
+    assert result["scanned"] > 0
+    assert result["hits"], "应该至少命中一块"
+    scores = [hit["score"] for hit in result["hits"]]
+    assert scores == sorted(scores, reverse=True)
+    assert all(hit["docName"] for hit in result["hits"])
+    assert result["mode"] == "mock"
+
+
+def test_rag_rejects_unsupported_and_empty(client: TestClient) -> None:
+    bad = client.post(
+        "/api/knowledge-bases/kb-001/documents",
+        files={"file": ("x.exe", b"binary", "application/octet-stream")},
+    )
+    assert bad.status_code == 415
+
+    empty = client.post(
+        "/api/knowledge-bases/kb-001/documents",
+        files={"file": ("empty.txt", b"", "text/plain")},
+    )
+    assert empty.status_code == 400
+
+
+def test_rag_delete_document_cleans_chunks(client: TestClient) -> None:
+    doc = _upload_text(client, "kb-002", "临时文档.txt", "这是一段用于删除测试的文本。" * 30)
+    assert doc["chunks"] >= 1
+
+    assert (
+        client.delete(f"/api/knowledge-bases/kb-002/documents/{doc['id']}").status_code == 204
+    )
+    listed = client.get("/api/knowledge-bases/kb-002/documents").json()
+    assert all(item["id"] != doc["id"] for item in listed)
+    # 该库已无分块，检索应返回空而不是报错
+    result = client.post(
+        "/api/knowledge-bases/kb-002/search", json={"query": "删除测试", "top_k": 3}
+    ).json()
+    assert result["hits"] == []

@@ -18,6 +18,7 @@ os.environ["APP_UPLOAD_DIR"] = str(_TMP_ROOT / "uploads")
 os.environ["APP_SEED_ON_STARTUP"] = "true"
 # 测试固定走模拟实现：不受本机 APP_DEEPSEEK_API_KEY 之类的影响
 os.environ["APP_LLM_MODE"] = "mock"
+os.environ["APP_EMBEDDING_MODE"] = "mock"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

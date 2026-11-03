@@ -1,4 +1,4 @@
-"""表结构增量补丁。
+﻿"""表结构增量补丁。
 
 项目用 `create_all()` 建表，它只会**新建表**，不会给已有表加列。
 所以新增字段时在这里登记一行 ALTER TABLE，启动时自动补齐 —— 练手阶段够用，
@@ -20,6 +20,7 @@ _ADDITIONS: list[tuple[str, str, str]] = [
     ("traces", "agent_id", "VARCHAR"),
     ("traces", "app_id", "VARCHAR"),
     ("traces", "workflow_id", "VARCHAR"),
+    ("knowledge_bases", "chunk_count", "INTEGER DEFAULT 0"),
 ]
 
 

@@ -48,6 +48,18 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
+    # ===== RAG / Embedding =====
+    # auto：有 Key 走真 embedding，没 Key 用本地哈希向量（离线也能检索）；real / mock 可强制
+    embedding_mode: str = "auto"
+    embedding_provider: str = "siliconflow"
+    embedding_base_url: str = "https://api.siliconflow.cn/v1"
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_api_key: str | None = None
+    embedding_dim: int = 1024
+    # 一次请求最多送多少条文本（硅基流动限制较宽松，32 稳妥）
+    embedding_batch: int = 32
+    embedding_timeout: float = 60.0
+
     # 本地 Ollama 不需要 Key
     ollama_base_url: str = "http://127.0.0.1:11434/v1"
 
