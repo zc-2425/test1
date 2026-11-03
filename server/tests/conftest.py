@@ -19,6 +19,14 @@ os.environ["APP_SEED_ON_STARTUP"] = "true"
 # 测试固定走模拟实现：不受本机 APP_DEEPSEEK_API_KEY 之类的影响
 os.environ["APP_LLM_MODE"] = "mock"
 os.environ["APP_EMBEDDING_MODE"] = "mock"
+# 把 Key 置空：测试绝不因为本机 .env 里有 Key 就真发请求（保持 hermetic）
+for _key_var in (
+    "APP_DEEPSEEK_API_KEY",
+    "APP_OPENAI_API_KEY",
+    "APP_SILICONFLOW_API_KEY",
+    "APP_EMBEDDING_API_KEY",
+):
+    os.environ[_key_var] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

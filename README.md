@@ -15,7 +15,7 @@
 | 图表 | ECharts 6（按需引入） | LLMOps 的折线/柱状/堆叠图；只注册 line/bar/pie + 必要组件，单独懒加载 chunk 约 95KB gzip |
 | 后端 | FastAPI 0.162 + SQLModel + SQLite | 同步链路，不引 greenlet/aiosqlite；真实 AI 生态（LangChain/向量库）在 Python 侧 |
 | 后端隔离 | `server/.venv`（uv 创建） | 不碰 Anaconda 全局 site-packages |
-| LLM 调用 | OpenAI 兼容协议（DeepSeek / OpenAI / Ollama） | 一个 httpx 流式客户端通吃；没配 Key 时自动回落本地模拟，并在界面上如实标注 |
+| LLM 调用 | OpenAI 兼容协议（硅基流动 / DeepSeek / OpenAI / Ollama） | 一个 httpx 流式客户端通吃；没配 Key 时自动回落本地模拟，并在界面上如实标注。硅基流动的 chat 与 embedding 共用一个 Key |
 
 > 前端依赖都锁在「已知稳定的大版本线」上，没有跟进 Vite 8 / TS 7 / ESLint 10 / Vuetify 4 这些新大版本。
 
@@ -112,7 +112,8 @@ LLMOps 的指标现在**不再有种子数据**——首次打开是全 0，跑�
 | 编号 | 内容 | 状态 |
 |---|---|---|
 | P1 | **会话持久化 + 真实 trace 写入**：conversations / messages 两张新表，每次调用写 1 条会话 + N 条消息 + 1 条 trace；LLMOps 全部聚合改读真实数据；提示词编辑器加「历史」抽屉；Agent 运行历史接真实查询 | ✅ |
-| P2 | **RAG 真链路**：上传解析 → 切块 → bge-m3 embedding → SQLite float32 BLOB 存向量 → numpy 余弦检索；知识库详情页可上传、看分块、跑检索测试 | ✅（引用角标待 P2.5 接进对话） |
+| P2 | **RAG 真链路**：上传解析 → 切块 → bge-m3 embedding → SQLite float32 BLOB 存向量 → numpy 余弦检索；知识库详情页可上传、看分块、跑检索测试 | ✅ |
+| P2.5 | **检索接进对话**：绑定知识库后先检索 top-k、命中片段进 system prompt、回答带 [1][2] 引用角标、引用随消息落库 | ✅ |
 | P3 | 评测集 + 回归（把「感觉不错」变成「数据说不错」） | ⬜ |
 | P4 | 工作流执行引擎 + 节点配置持久化 | ⬜ |
 | P5 | 工具执行沙箱 + 调用审计 | ⬜ |

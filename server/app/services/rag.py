@@ -1,4 +1,4 @@
-﻿"""RAG：切块 → 向量化 → 入库 → 检索。
+"""RAG：切块 → 向量化 → 入库 → 检索。
 
 存储用 SQLite：
 - 文本在 `document_chunks`
@@ -235,6 +235,8 @@ def search(
                 "position": chunk.position,
                 "score": round(score, 4),
                 "preview": chunk.content[:220],
+                # 拼 prompt 用完整正文；界面只用 preview
+                "content": chunk.content,
             }
         )
 

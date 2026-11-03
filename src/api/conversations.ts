@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 会话与调用记录。
  * P1 起这些数据由真实交互产生（对话、提示词测试、工作流运行），不再是种子。
  */
@@ -30,6 +30,8 @@ export type MessageDto = {
   tokens: number
   latency_ms: number
   mode: string
+  /** 引用来源（JSON 文本，可能为 null） */
+  citations: string | null
   created_at: string
 }
 

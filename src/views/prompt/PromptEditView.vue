@@ -15,7 +15,7 @@ import {
   AppTextField
 } from '@/components/ui'
 import type { TabItem } from '@/components/ui'
-import { promptsApi } from '@/api/resources'
+import { knowledgeBasesApi, promptsApi } from '@/api/resources'
 import {
   getConversation,
   listConversations,
@@ -23,7 +23,7 @@ import {
   type ConversationDto
 } from '@/api/conversations'
 import { fetchChatStatus, streamChat, type ChatStatus, type ChatUsage } from '@/api/chat'
-import type { PromptDto } from '@/api/types'
+import type { KnowledgeBaseDto, PromptDto } from '@/api/types'
 import { useResource } from '@/composables/useResource'
 import { toast } from '@/composables/useToast'
 import { formatDateTime, formatRelative } from '@/utils/format'
@@ -56,6 +56,17 @@ const usage = ref<ChatUsage | null>(null)
 let controller: AbortController | null = null
 const chatStatus = ref<ChatStatus | null>(null)
 
+/* ---------------- 知识库（RAG） ---------------- */
+const kbId = ref('')
+const { data: kbPage } = useResource(() => knowledgeBasesApi.list({ size: 50 }))
+const kbOptions = computed(() => [
+  { title: '不使用知识库', value: '' },
+  ...((kbPage.value?.items ?? []).map((item: KnowledgeBaseDto) => ({
+    title: `${item.name}（${item.doc_count} 个文档）`,
+    value: item.id
+  })) as { title: string; value: string }[])
+])
+
 /* ---------------- 历史会话（P1：真实落库的数据） ---------------- */
 const historyOpen = ref(false)
 const historyLoading = ref(false)
@@ -77,6 +88,17 @@ async function loadHistory(): Promise<void> {
     toast('历史加载失败', { tone: 'error', description: String(cause) })
   } finally {
     historyLoading.value = false
+  }
+}
+
+/** 历史消息里的引用是 JSON 文本，这里只取条数 */
+function citationCount(raw: string | null | undefined): number {
+  if (!raw) return 0
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed.length : 0
+  } catch {
+    return 0
   }
 }
 
@@ -162,6 +184,7 @@ async function runTest(): Promise<void> {
         prompt: content.value,
         input: testInput.value,
         promptId: id,
+        kbId: kbId.value || undefined,
         model: modelSettings.model,
         temperature: modelSettings.temperature
       },
@@ -270,6 +293,12 @@ function insertVariable(key: string): void {
                 : '模拟输出（未配置模型 Key，写入 server/.env 后自动切换真实调用）'
             "
           >
+            <AppSelect
+              v-model="kbId"
+              label="关联知识库"
+              :items="kbOptions"
+              class="prompt-edit__kb"
+            />
             <AppTextarea v-model="testInput" label="输入" :rows="3" />
             <div class="prompt-edit__run">
               <AppButton size="sm" :icon="testing ? 'mdi-stop' : 'mdi-play'" @click="runTest">
@@ -285,12 +314,29 @@ function insertVariable(key: string): void {
                 :tone="usage.mode === 'real' ? 'success' : 'warning'"
               />
             </div>
+
             <div class="prompt-edit__output" :class="{ 'is-empty': !output }">
               <template v-if="output">
                 <span class="prompt-edit__text">{{ output }}</span>
                 <span v-if="testing" class="prompt-edit__cursor" />
               </template>
               <span v-else class="prompt-edit__placeholder">点「运行」查看输出…</span>
+            </div>
+
+            <div v-if="usage?.citations.length" class="prompt-edit__citations">
+              <p class="prompt-edit__citations-head">
+                引用来源 {{ usage.citations.length }} 条 · 检索 {{ usage.ragMs }}ms
+              </p>
+              <div
+                v-for="(cite, index) in usage.citations"
+                :key="cite.chunkId"
+                class="prompt-edit__citation"
+              >
+                <span class="prompt-edit__citation-index">[{{ index + 1 }}]</span>
+                <span class="prompt-edit__citation-doc">{{ cite.docName }} · 第 {{ cite.position + 1 }} 段</span>
+                <span class="prompt-edit__citation-score">{{ cite.score.toFixed(4) }}</span>
+                <p class="prompt-edit__citation-preview">{{ cite.preview }}</p>
+              </div>
             </div>
           </AppContentCard>
         </div>
@@ -396,6 +442,9 @@ function insertVariable(key: string): void {
             <span>{{ message.role === 'user' ? '用户' : '助手' }}</span>
             <span v-if="message.role === 'assistant'" class="history-msg__meta">
               {{ message.tokens }} tokens · {{ message.latency_ms }} ms · {{ message.mode }}
+              <span v-if="citationCount(message.citations)">
+                · {{ citationCount(message.citations) }} 条引用
+              </span>
             </span>
           </div>
           <p class="history-msg__body">{{ message.content }}</p>
@@ -644,5 +693,55 @@ function insertVariable(key: string): void {
 .history__trace {
   font: var(--font-label-sm);
   color: var(--color-text-tertiary);
+}
+.prompt-edit__kb {
+  margin-bottom: var(--spacing-3);
+  max-width: 320px;
+}
+
+.prompt-edit__citations {
+  margin-top: var(--spacing-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.prompt-edit__citations-head {
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+}
+
+.prompt-edit__citation {
+  border: var(--border-width) solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-2) var(--spacing-3);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px var(--spacing-2);
+  align-items: baseline;
+}
+
+.prompt-edit__citation-index {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--color-primary);
+}
+
+.prompt-edit__citation-doc {
+  font: var(--font-label-sm);
+  color: var(--color-text-secondary);
+}
+
+.prompt-edit__citation-score {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.prompt-edit__citation-preview {
+  grid-column: 1 / -1;
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+  line-height: 18px;
 }
 </style>

@@ -21,6 +21,7 @@ _ADDITIONS: list[tuple[str, str, str]] = [
     ("traces", "app_id", "VARCHAR"),
     ("traces", "workflow_id", "VARCHAR"),
     ("knowledge_bases", "chunk_count", "INTEGER DEFAULT 0"),
+    ("messages", "citations", "TEXT"),
 ]
 
 

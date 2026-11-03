@@ -27,6 +27,9 @@ export interface ChatRequest {
   conversationId?: string
   /** 关掉就不落库 */
   persist?: boolean
+  /** 绑定知识库：后端先检索再生成 */
+  kbId?: string
+  ragTopK?: number
 }
 
 export interface ChatUsage {
@@ -39,6 +42,19 @@ export interface ChatUsage {
   finishReason: string
   /** 本次调用所属会话，便于跳转查看历史 */
   conversationId: string | null
+  /** 检索阶段耗时（未绑定知识库时为 0） */
+  ragMs: number
+  /** 命中的知识库片段 */
+  citations: Citation[]
+}
+
+export type Citation = {
+  chunkId: string
+  docId: string
+  docName: string
+  position: number
+  score: number
+  preview: string
 }
 
 export interface ChatStatus {
@@ -79,7 +95,9 @@ export async function streamChat(
       agent_id: request.agentId,
       app_id: request.appId,
       conversation_id: request.conversationId,
-      persist: request.persist ?? true
+      persist: request.persist ?? true,
+      kb_id: request.kbId,
+      rag_top_k: request.ragTopK
     }),
     signal: options.signal
   })
@@ -133,7 +151,9 @@ export async function streamChat(
           completionTokens: Number(token.completionTokens ?? 0),
           latencyMs: Number(event.latencyMs ?? 0),
           finishReason: String(event.finishReason ?? 'stop'),
-          conversationId: event.conversationId ? String(event.conversationId) : null
+          conversationId: event.conversationId ? String(event.conversationId) : null,
+          ragMs: Number(event.ragMs ?? 0),
+          citations: Array.isArray(event.citations) ? (event.citations as Citation[]) : []
         }
       } else if (event.type === 'error') {
         failure = String(event.message ?? '未知错误')

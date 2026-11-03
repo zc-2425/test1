@@ -1,4 +1,4 @@
-"""对话接口：真 SSE 流式输出 + 会话落库 + trace 埋点。
+﻿"""对话接口：真 SSE 流式输出 + 会话落库 + trace 埋点。
 
 前端只需要一个 `POST /api/chat/stream`，由后端决定走真模型还是模拟：
 - 配了 Key（或 APP_LLM_MODE=real）→ 转发真模型的 SSE
@@ -26,7 +26,7 @@ from sqlmodel import Session
 
 from app import models
 from app.db import engine
-from app.services import telemetry
+from app.services import rag, telemetry
 from app.services.llm import ChatMessage, LLMError, resolve_config, should_use_real
 from app.services.llm import mock as mock_llm
 from app.services.llm import openai_compatible as real_llm
@@ -47,6 +47,9 @@ class ChatIn(BaseModel):
     prompt_id: str | None = None
     agent_id: str | None = None
     app_id: str | None = None
+    # 绑定知识库时先检索，把命中片段拼进 system prompt，并在结果里返回引用
+    kb_id: str | None = None
+    rag_top_k: int = Field(default=4, ge=1, le=8)
     # 关掉就不落库（连通性试验之类）
     persist: bool = True
 
@@ -99,6 +102,33 @@ async def _generate(payload: ChatIn) -> AsyncIterator[str]:
                     session, conversation, role="user", content=payload.input.strip()
                 )
 
+        # RAG：先检索再生成。命中片段拼进 system prompt，编号与引用列表一一对应
+        citations: list[dict] = []
+        rag_ms = 0
+        if payload.kb_id:
+            kb = session.get(models.KnowledgeBase, payload.kb_id)
+            if kb is not None:
+                found = rag.search(session, kb, payload.input.strip() or "你好", payload.rag_top_k)
+                citations = found["hits"]
+                rag_ms = found["tookMs"]
+                if citations:
+                    blocks = [
+                        f"[{index + 1}] 来源：{hit['docName']} 第 {hit['position'] + 1} 段\n{hit['content']}"
+                        for index, hit in enumerate(citations)
+                    ]
+                    messages.insert(
+                        0,
+                        ChatMessage(
+                            role="system",
+                            content=(
+                                "你可以参考下面的知识库片段回答问题。"
+                                "引用片段时在句末标注编号，例如 [1]；"
+                                "片段里没有的信息不要编造，直接说明知识库中没有相关内容。\n\n"
+                                + "\n\n---\n\n".join(blocks)
+                            ),
+                        ),
+                    )
+
         speaker = ""
         result = None
         failure: str | None = None
@@ -137,6 +167,7 @@ async def _generate(payload: ChatIn) -> AsyncIterator[str]:
                     tokens=completion_tokens,
                     latency_ms=latency,
                     mode=mode,
+                    citations=citations or None,
                 )
             telemetry.record_trace(
                 session,
@@ -168,6 +199,19 @@ async def _generate(payload: ChatIn) -> AsyncIterator[str]:
                     },
                     "latencyMs": result.latency_ms,
                     "finishReason": result.finish_reason,
+                    "ragMs": rag_ms,
+                    # 只回界面需要的字段，完整正文已在 prompt 里
+                    "citations": [
+                        {
+                            "chunkId": hit["chunkId"],
+                            "docId": hit["docId"],
+                            "docName": hit["docName"],
+                            "position": hit["position"],
+                            "score": hit["score"],
+                            "preview": hit["preview"],
+                        }
+                        for hit in citations
+                    ],
                 }
             )
 

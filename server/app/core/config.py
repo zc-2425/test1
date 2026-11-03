@@ -1,4 +1,4 @@
-﻿"""应用配置：全部来自环境变量或 server/.env，不读系统级配置。"""
+"""应用配置：全部来自环境变量或 server/.env，不读系统级配置。"""
 
 from functools import lru_cache
 from pathlib import Path
@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
+    # 硅基流动：chat 与 embedding 共用一个 Key；不单独填则自动回落用 embedding 的 Key
+    siliconflow_api_key: str | None = None
+    siliconflow_base_url: str = "https://api.siliconflow.cn/v1"
     # ===== RAG / Embedding =====
     # auto：有 Key 走真 embedding，没 Key 用本地哈希向量（离线也能检索）；real / mock 可强制
     embedding_mode: str = "auto"

@@ -292,6 +292,8 @@ class Message(SQLModel, table=True):
     latency_ms: int = 0
     # real | mock
     mode: str = "mock"
+    # 引用来源（JSON 数组文本）：[{docName, position, score, chunkId, docId}]
+    citations: str | None = None
     created_at: datetime = Field(default_factory=_now)
 
 class KnowledgeDoc(SQLModel, table=True):

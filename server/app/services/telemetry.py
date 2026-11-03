@@ -1,4 +1,4 @@
-"""埋点与会话落库。
+﻿"""埋点与会话落库。
 
 P1 的核心：**每一次真实调用都写一条 trace，每一次交互都写一条会话**。
 LLMOps 的所有聚合、Agent 的运行历史、差评归因，都建立在这两张表上。
@@ -7,6 +7,7 @@ LLMOps 的所有聚合、Agent 的运行历史、差评归因，都建立在这�
 流式响应里会单独开一个 Session（见 chat.py），避免请求作用域的 session 提前关闭。
 """
 
+import json
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
@@ -70,6 +71,7 @@ def append_message(
     tokens: int = 0,
     latency_ms: int = 0,
     mode: str = "mock",
+    citations: list[dict] | None = None,
 ) -> models.Message:
     message = models.Message(
         id=new_id("msg"),
@@ -79,6 +81,8 @@ def append_message(
         tokens=tokens,
         latency_ms=latency_ms,
         mode=mode,
+        # 引用随消息落库，历史回看时能还原「当时依据了哪几段」
+        citations=json.dumps(citations, ensure_ascii=False) if citations else None,
     )
     session.add(message)
 

@@ -376,3 +376,74 @@ def test_rag_delete_document_cleans_chunks(client: TestClient) -> None:
         "/api/knowledge-bases/kb-002/search", json={"query": "删除测试", "top_k": 3}
     ).json()
     assert result["hits"] == []
+
+def _seed_kb_doc(client: TestClient, kb_id: str, name: str, content: str) -> dict:
+    response = client.post(
+        f"/api/knowledge-bases/{kb_id}/documents",
+        files={"file": (name, content.encode("utf-8"), "text/markdown")},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _collect_events(payload: str) -> tuple[str, dict]:
+    import json
+
+    text = ""
+    result: dict = {}
+    for line in payload.splitlines():
+        if not line.startswith("data:") or line.strip() == "data: [DONE]":
+            continue
+        event = json.loads(line[5:].strip())
+        if event.get("type") == "delta":
+            text += event.get("content", "")
+        elif event.get("type") == "result":
+            result = event
+    return text, result
+
+
+def test_chat_with_knowledge_base_returns_citations(client: TestClient) -> None:
+    """绑定知识库时：命中片段进 prompt，result 事件回引用，消息里存引用。"""
+    content = (
+        "退货政策说明。收到商品后 30 天内可申请退货，需保持包装完好。\n\n"
+        "退款到账时间：审核通过后 3 个工作日退回原支付账户。\n\n"
+    ) * 20
+    _seed_kb_doc(client, "kb-003", "退货与退款说明.md", content)
+
+    with client.stream(
+        "POST",
+        "/api/chat/stream",
+        json={"input": "退货要多久才能退款", "kb_id": "kb-003", "rag_top_k": 3},
+    ) as response:
+        assert response.status_code == 200
+        text, result = _collect_events("".join(response.iter_text()))
+
+    citations = result.get("citations") or []
+    assert citations, "绑定知识库后应返回引用"
+    assert citations[0]["docName"] == "退货与退款说明.md"
+    assert citations[0]["score"] > 0
+    assert result["ragMs"] >= 0
+
+    # 引用随消息落库，历史能还原当时依据
+    detail = client.get(f"/api/conversations/{result['conversationId']}").json()
+    assistant = [m for m in detail["messages"] if m["role"] == "assistant"][0]
+    assert assistant["citations"], "assistant 消息应保存引用 JSON"
+    assert "退货与退款说明" in assistant["citations"]
+
+
+def test_chat_without_knowledge_base_has_no_citations(client: TestClient) -> None:
+    with client.stream(
+        "POST", "/api/chat/stream", json={"input": "今天天气怎么样"}
+    ) as response:
+        _text, result = _collect_events("".join(response.iter_text()))
+    assert result["citations"] == []
+
+
+def test_chat_with_unknown_kb_still_works(client: TestClient) -> None:
+    """知识库不存在时不应 500，退化成无引用回答。"""
+    with client.stream(
+        "POST", "/api/chat/stream", json={"input": "你好", "kb_id": "kb-not-exist"}
+    ) as response:
+        assert response.status_code == 200
+        _text, result = _collect_events("".join(response.iter_text()))
+    assert result["citations"] == []
