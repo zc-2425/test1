@@ -16,6 +16,7 @@ from sqlmodel import Session
 
 from app import models
 from app.db import get_session
+from app.services import telemetry
 from app.services.llm import ChatMessage, LLMError, resolve_config
 from app.services.llm import openai_compatible as real_llm
 
@@ -91,6 +92,16 @@ async def run_workflow(
         [start_node] + [middles[i % len(middles)] for i in range(node_total - 2)] + [end_node]
     )
 
+    # P1：一次运行也记成一次会话，运行历史与成本才有归属
+    conversation = telemetry.start_conversation(
+        session,
+        source="workflow_run",
+        title=(payload.input or "工作流运行")[:60],
+        workflow_id=workflow_id,
+    )
+    if payload.input.strip():
+        telemetry.append_message(session, conversation, role="user", content=payload.input.strip())
+
     steps: list[dict] = []
     total_ms = 0
     prompt_tokens = 0
@@ -109,18 +120,39 @@ async def run_workflow(
             # 配了 Key 就真调一次模型；没配就沿用确定性模拟，避免演示时直接报错
             real = await _run_real_llm(wf.name, payload.input, _CONFIG)
             if real is None:
-                prompt_tokens += rng.randint(320, 900)
-                completion_tokens += rng.randint(120, 480)
+                node_prompt = rng.randint(320, 900)
+                node_completion = rng.randint(120, 480)
+                prompt_tokens += node_prompt
+                completion_tokens += node_completion
                 step["output"] = "已生成回答，共 3 段、约 220 字。（模拟）"
                 step["mode"] = "mock"
+                node_mode = "mock"
+                node_latency = duration
             else:
                 text, usage, latency = real
-                prompt_tokens += usage[0]
-                completion_tokens += usage[1]
+                node_prompt, node_completion = usage
+                prompt_tokens += node_prompt
+                completion_tokens += node_completion
                 duration = latency
                 total_ms += latency
                 step["output"] = text
                 step["mode"] = "real"
+                node_mode = "real"
+                node_latency = latency
+
+            # 每个 LLM 节点都是一次真实调用，单独记一条 trace
+            telemetry.record_trace(
+                session,
+                kind="workflow_run",
+                provider=(_CONFIG.provider if _CONFIG else "unknown"),
+                model=(_CONFIG.model if _CONFIG else "unknown"),
+                mode=node_mode,
+                prompt_tokens=node_prompt,
+                completion_tokens=node_completion,
+                latency_ms=node_latency,
+                conversation_id=conversation.id,
+                workflow_id=workflow_id,
+            )
         elif node_type == "retrieval":
             step["output"] = "命中 5 个分块，最高相似度 0.87。"
         elif node_type == "condition":
@@ -141,6 +173,17 @@ async def run_workflow(
         "output": "根据知识库检索结果，您的订单预计 3 个工作日内送达；如需加急请联系人工客服。",
         "steps": steps,
     }
+
+    # 结束消息也落库：一次运行 = 一条 user + 一条 assistant
+    telemetry.append_message(
+        session,
+        conversation,
+        role="assistant",
+        content=result["output"],
+        tokens=completion_tokens,
+        latency_ms=total_ms,
+        mode="real" if any(s.get("mode") == "real" for s in steps) else "mock",
+    )
 
     # 运行完顺手更新工作流状态与最后运行时间，列表页立刻能看到变化
     wf.last_run_at = datetime.now(UTC).replace(microsecond=0)

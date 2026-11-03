@@ -1,4 +1,4 @@
-"""数据库表模型。
+﻿"""数据库表模型。
 
 约定：
 1. 主键统一用**可读字符串**（`wf-001` / `agt-003`），方便前端 mock 与后端真数据无缝替换；
@@ -223,7 +223,10 @@ class AbTest(SQLModel, table=True):
 
 
 class Trace(SQLModel, table=True):
-    """LLMOps 的成本与延迟聚合来源。P10 才用，先建表把关系固定下来。"""
+    """一次真实调用的埋点。LLMOps 的所有聚合都从这张表算出来。
+
+    P1 起它由**真实调用**写入（对话流、工作流 LLM 节点），不再是种子数据。
+    """
 
     __tablename__ = "traces"
 
@@ -235,5 +238,56 @@ class Trace(SQLModel, table=True):
     cost_usd: float = 0.0
     latency_ms: int = 0
     status: str = "成功"
-    day: date
+    # chat | prompt_test | workflow_run
+    kind: str = Field(default="chat", index=True)
+    # real | mock —— 供 LLMOps 区分真实消耗与模拟输出
+    mode: str = Field(default="mock", index=True)
+    # 失败时的错误摘要（成功为空）
+    error: str | None = None
+
+    # 归属：谁触发的这次调用
+    conversation_id: str | None = Field(default=None, index=True)
+    agent_id: str | None = Field(default=None, index=True)
+    app_id: str | None = Field(default=None, index=True)
+    workflow_id: str | None = Field(default=None, index=True)
+
+    day: date = Field(default_factory=date.today, index=True)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class Conversation(SQLModel, table=True):
+    """一次完整会话（一次对话、一次提示词测试、一次工作流运行都算一次会话）。"""
+
+    __tablename__ = "conversations"
+
+    id: str = Field(primary_key=True)
+    title: str = ""
+    # prompt_test | workflow_run | app_chat
+    source: str = Field(default="prompt_test", index=True)
+    prompt_id: str | None = Field(default=None, index=True)
+    agent_id: str | None = Field(default=None, index=True)
+    app_id: str | None = Field(default=None, index=True)
+    workflow_id: str | None = Field(default=None, index=True)
+
+    message_count: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class Message(SQLModel, table=True):
+    """会话里的一条消息。assistant 消息带 token、耗时与模式，便于单条归因。"""
+
+    __tablename__ = "messages"
+
+    id: str = Field(primary_key=True)
+    conversation_id: str = Field(index=True)
+    # user | assistant | system
+    role: str = "user"
+    content: str = ""
+    tokens: int = 0
+    latency_ms: int = 0
+    # real | mock
+    mode: str = "mock"
     created_at: datetime = Field(default_factory=_now)

@@ -106,24 +106,30 @@ def test_knowledge_documents(client: TestClient) -> None:
     assert docs[0]["status"] == "已入库"  # kb-001 进度 100
 
 
-def test_llmops_aggregations(client: TestClient) -> None:
+def test_llmops_aggregations_reflect_real_calls(client: TestClient) -> None:
+    """P1 起 LLMOps 不再读种子：数字必须来自真实调用的 trace。"""
+    before = client.get("/api/llmops/overview").json()["cards"]["totalCalls"]
+
+    # 真跑一次对话（会写 trace）
+    with client.stream("POST", "/api/chat/stream", json={"input": "你好"}) as response:
+        assert response.status_code == 200
+        "".join(response.iter_text())
+
     overview = client.get("/api/llmops/overview").json()
-    assert overview["cards"]["totalCalls"] > 0
-    assert overview["cards"]["totalCostUsd"] > 0
+    assert overview["cards"]["totalCalls"] == before + 1
     assert 0 < overview["cards"]["successRate"] <= 100
     assert len(overview["health"]) == 7
 
     series = client.get("/api/llmops/cost/series").json()
-    assert len(series["series"]) == 15
-    assert len(series["models"]) == 4
-    # 每天的 total 应该等于各模型之和
-    first = series["series"][0]
+    assert len(series["series"]) >= 1
+    assert series["models"], "至少应出现一次调用的模型"
+    # 每天的 total 等于各模型之和
+    first = series["series"][-1]
     model_sum = sum(first[m] for m in series["models"])
     assert abs(model_sum - first["total"]) < 1e-6
 
     perf = client.get("/api/llmops/models").json()
-    assert len(perf) == 4
-    assert all(row["calls"] > 0 for row in perf)
+    assert perf and all(row["calls"] > 0 for row in perf)
 
 
 def test_auth_login_and_me(client: TestClient) -> None:
@@ -229,3 +235,65 @@ def test_provider_test_rejects_unknown_slug(client: TestClient) -> None:
     body = client.post("/api/providers/prov-003/test").json()
     assert body["ok"] is False
     assert body["supported"] is False
+
+def test_chat_persists_conversation_messages_and_trace(client: TestClient) -> None:
+    """一次对话 = 1 条会话 + 2 条消息 + 1 条 trace。"""
+    with client.stream(
+        "POST",
+        "/api/chat/stream",
+        json={"prompt": "你是助手", "input": "退款要几天", "prompt_id": "pmt-001"},
+    ) as response:
+        assert response.status_code == 200
+        payload = "".join(response.iter_text())
+
+    import json
+
+    conversation_id = None
+    for line in payload.splitlines():
+        if not line.startswith("data:") or line.strip() == "data: [DONE]":
+            continue
+        event = json.loads(line[5:].strip())
+        if event.get("type") == "result":
+            conversation_id = event.get("conversationId")
+
+    assert conversation_id, "result 事件必须回传 conversationId"
+
+    detail = client.get(f"/api/conversations/{conversation_id}").json()
+    conversation = detail["conversation"]
+    assert conversation["source"] == "prompt_test"
+    assert conversation["prompt_id"] == "pmt-001"
+    assert conversation["message_count"] == 2
+
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant"]
+    assert detail["messages"][1]["mode"] == "mock"
+    assert detail["messages"][1]["content"]
+
+    traces = detail["traces"]
+    assert len(traces) == 1
+    assert traces[0]["kind"] == "prompt_test"
+    assert traces[0]["status"] == "成功"
+    assert traces[0]["mode"] == "mock"
+
+
+def test_conversations_list_and_delete(client: TestClient) -> None:
+    with client.stream("POST", "/api/chat/stream", json={"input": "会话列表测试"}) as response:
+        "".join(response.iter_text())
+
+    listed = client.get("/api/conversations", params={"source": "prompt_test", "size": 50}).json()
+    assert listed["total"] >= 1
+    assert all(item["source"] == "prompt_test" for item in listed["items"])
+
+    target = listed["items"][0]["id"]
+    assert client.delete(f"/api/conversations/{target}").status_code == 204
+    assert client.get(f"/api/conversations/{target}").status_code == 404
+
+
+def test_traces_endpoint_filters(client: TestClient) -> None:
+    with client.stream("POST", "/api/chat/stream", json={"input": "trace 过滤测试"}) as response:
+        "".join(response.iter_text())
+
+    traces = client.get("/api/traces", params={"kind": "prompt_test", "size": 5}).json()
+    assert traces["total"] >= 1
+    assert all(item["kind"] == "prompt_test" for item in traces["items"])
+    assert all(item["provider"] for item in traces["items"])

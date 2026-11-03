@@ -18,6 +18,7 @@ import {
 } from '@/components/ui'
 import type { OperationItem, TabItem } from '@/components/ui'
 import { agentsApi, toolsApi } from '@/api/resources'
+import { listConversations, type ConversationDto } from '@/api/conversations'
 import type { AgentDto, ToolDto } from '@/api/types'
 import { useResource } from '@/composables/useResource'
 import { toast } from '@/composables/useToast'
@@ -32,7 +33,22 @@ const route = useRoute()
 const router = useRouter()
 const id = String(route.params.id ?? '')
 
-const { data: agent, loading, error, notFound } = useResource<AgentDto>(() => agentsApi.get(id))
+const { data: agent, error, notFound } = useResource<AgentDto>(() => agentsApi.get(id))
+const { data: conversations, loading: historyLoading } = useResource<ConversationDto[]>(() =>
+  listConversations({ agent_id: id, size: 20 }).then((page) => page.items)
+)
+
+const historyRows = computed(() =>
+  (conversations.value ?? []).map((item) => ({
+    id: item.id,
+    title: item.title || '（无标题会话）',
+    message_count: item.message_count,
+    total_tokens: item.total_tokens,
+    total_cost_usd: `$${item.total_cost_usd.toFixed(4)}`,
+    updated_at: formatRelative(item.updated_at)
+  }))
+)
+
 const { data: tools } = useResource<ToolDto[]>(() =>
   toolsApi.list({ size: 50 }).then((page) => page.items)
 )
@@ -211,16 +227,16 @@ async function onOperation(key: string): Promise<void> {
       <AppContentCard v-else-if="activeTab === 'history'" title="运行历史" subtitle="原型没有这一页，按 trace 的字段形态补的">
         <AppDataTable
           :columns="[
-            { key: 'id', title: '运行 ID', width: '18%', render: 'mono' },
-            { key: 'input', title: '输入', width: '30%', ellipsis: true },
-            { key: 'tokens', title: 'Token', width: '12%', align: 'right' },
-            { key: 'duration', title: '耗时', width: '12%', align: 'right' },
-            { key: 'status', title: '状态', width: '12%', render: 'badge' }
+            { key: 'title', title: '会话', width: '40%', emphasis: true, ellipsis: true },
+            { key: 'message_count', title: '消息数', width: '12%', align: 'right' },
+            { key: 'total_tokens', title: 'Token', width: '14%', align: 'right' },
+            { key: 'total_cost_usd', title: '成本', width: '14%', align: 'right', render: 'mono' },
+            { key: 'updated_at', title: '时间', width: '20%' }
           ]"
-          :rows="[]"
-          :loading="loading"
+          :rows="historyRows"
+          :loading="historyLoading"
           empty-title="还没有运行记录"
-          empty-description="点右上角「运行」或列表里的 ▶ 会产生第一条记录"
+          empty-description="这个 Agent 还没有产生过会话；接上 Agent 运行时会出现在这里"
         >
           <template #empty-action>
             <AppButton size="sm" icon="mdi-play" @click="onOperation('run')">运行一次</AppButton>

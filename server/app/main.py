@@ -15,6 +15,7 @@ from sqlmodel import Session
 from app.api.v1 import (
     auth,
     chat,
+    conversations,
     knowledge_ops,
     llmops,
     provider_ops,
@@ -24,6 +25,7 @@ from app.api.v1 import (
 )
 from app.core.config import get_settings
 from app.db import create_db_and_tables, engine
+from app.migrate import apply_schema_patches
 from app.seed import seed_if_empty
 
 settings = get_settings()
@@ -32,6 +34,9 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     create_db_and_tables()
+    applied = apply_schema_patches()
+    if applied:
+        print(f"[migrate] 已补列：{', '.join(applied)}")
     if settings.seed_on_startup:
         with Session(engine) as session:
             seeded = seed_if_empty(session)
@@ -64,6 +69,7 @@ api_router.include_router(knowledge_ops.router)
 api_router.include_router(workflow_ops.router)
 api_router.include_router(chat.router)
 api_router.include_router(provider_ops.router)
+api_router.include_router(conversations.router)
 
 app.include_router(api_router)
 

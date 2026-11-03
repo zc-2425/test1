@@ -146,35 +146,6 @@ PRICE_PER_1K = {
 }
 
 
-def _seed_traces(session: Session) -> None:
-    """生成 15 天 × 4 模型的调用记录，供 LLMOps 成本/性能页聚合。"""
-    rng = random.Random(20240115)
-    rows: list[models.Trace] = []
-    idx = 0
-    for day_offset in range(15):
-        current = date(2024, 1, 1) + timedelta(days=day_offset)
-        for model_name, (pin, pout) in PRICE_PER_1K.items():
-            calls = rng.randint(6, 24)
-            for _ in range(calls):
-                idx += 1
-                prompt_tokens = rng.randint(400, 3200)
-                completion_tokens = rng.randint(120, 1400)
-                cost = prompt_tokens / 1000 * pin + completion_tokens / 1000 * pout
-                rows.append(
-                    models.Trace(
-                        id=f"tr-{idx:05d}",
-                        provider=model_name.split("-")[0],
-                        model=model_name,
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        cost_usd=round(cost, 6),
-                        latency_ms=rng.randint(600, 4200),
-                        status="成功" if rng.random() > 0.03 else "失败",
-                        day=current,
-                        created_at=datetime(current.year, current.month, current.day, rng.randint(0, 23), rng.randint(0, 59), tzinfo=UTC),
-                    )
-                )
-    session.add_all(rows)
 
 
 def seed_if_empty(session: Session) -> bool:
@@ -371,7 +342,5 @@ def seed_if_empty(session: Session) -> bool:
             for i, n, ma, mb, s, ss, w, ca in AB_TESTS
         ]
     )
-    _seed_traces(session)
-
     session.commit()
     return True

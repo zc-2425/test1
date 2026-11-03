@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 对话/生成的流式接口 —— 真 SSE。
  *
  * 走 `POST /api/chat/stream`，后端决定用真模型还是模拟：
@@ -20,6 +20,13 @@ export interface ChatRequest {
   provider?: string
   temperature?: number
   maxTokens?: number
+  /** 会话归属：写进 conversations / traces */
+  promptId?: string
+  agentId?: string
+  appId?: string
+  conversationId?: string
+  /** 关掉就不落库 */
+  persist?: boolean
 }
 
 export interface ChatUsage {
@@ -30,6 +37,8 @@ export interface ChatUsage {
   completionTokens: number
   latencyMs: number
   finishReason: string
+  /** 本次调用所属会话，便于跳转查看历史 */
+  conversationId: string | null
 }
 
 export interface ChatStatus {
@@ -65,7 +74,12 @@ export async function streamChat(
       model: request.model,
       provider: request.provider,
       temperature: request.temperature ?? 0.7,
-      max_tokens: request.maxTokens
+      max_tokens: request.maxTokens,
+      prompt_id: request.promptId,
+      agent_id: request.agentId,
+      app_id: request.appId,
+      conversation_id: request.conversationId,
+      persist: request.persist ?? true
     }),
     signal: options.signal
   })
@@ -118,7 +132,8 @@ export async function streamChat(
           promptTokens: Number(token.promptTokens ?? 0),
           completionTokens: Number(token.completionTokens ?? 0),
           latencyMs: Number(event.latencyMs ?? 0),
-          finishReason: String(event.finishReason ?? 'stop')
+          finishReason: String(event.finishReason ?? 'stop'),
+          conversationId: event.conversationId ? String(event.conversationId) : null
         }
       } else if (event.type === 'error') {
         failure = String(event.message ?? '未知错误')

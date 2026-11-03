@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui'
 import EChart from '@/components/charts/EChart.vue'
 import { getCostSeries, getOverview } from '@/api/llmops'
+import { listConversations } from '@/api/conversations'
 import { useResource } from '@/composables/useResource'
 import { formatDateTime, formatNumber } from '@/utils/format'
 
@@ -21,6 +22,9 @@ import { formatDateTime, formatNumber } from '@/utils/format'
 const router = useRouter()
 const { data: overview, loading } = useResource(getOverview)
 const { data: cost } = useResource(() => getCostSeries(15))
+const { data: conversations, reload: reloadConversations } = useResource(() =>
+  listConversations({ size: 5 })
+)
 
 const trendOption = computed(() => {
   const points = cost.value?.series ?? []
@@ -107,6 +111,31 @@ const cards = computed(() => overview.value?.cards)
         </div>
       </div>
       <AppEmptyState v-else size="sm" icon="mdi-bell-check-outline" title="没有未处理告警" />
+    </AppContentCard>
+
+    <AppContentCard title="最近会话" subtitle="P1 起每次真实调用都会落成一条会话" flush>
+      <template #actions>
+        <AppButton size="sm" variant="ghost" icon="mdi-refresh" @click="reloadConversations">
+          刷新
+        </AppButton>
+      </template>
+      <div v-if="conversations?.items.length" class="convs">
+        <div v-for="item in conversations.items" :key="item.id" class="convs__row">
+          <AppTagChip :label="item.source" />
+          <span class="convs__title">{{ item.title || '（无标题会话）' }}</span>
+          <span class="convs__meta">{{ item.message_count }} 条</span>
+          <span class="convs__meta">{{ formatNumber(item.total_tokens) }} tokens</span>
+          <span class="convs__meta">${{ item.total_cost_usd.toFixed(4) }}</span>
+          <span class="convs__time">{{ formatDateTime(item.updated_at) }}</span>
+        </div>
+      </div>
+      <AppEmptyState
+        v-else
+        size="sm"
+        icon="mdi-chat-outline"
+        title="还没有会话记录"
+        description="去提示词编辑器点一次「运行」，或跑一次工作流，这里就会出现真实数据"
+      />
     </AppContentCard>
 
     <p class="llmops__foot">
@@ -219,5 +248,44 @@ const cards = computed(() => overview.value?.cards)
   font: var(--font-label-sm);
   color: var(--color-text-tertiary);
   padding-bottom: var(--spacing-6);
+}
+.convs {
+  display: flex;
+  flex-direction: column;
+}
+
+.convs__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: var(--border-width) solid var(--color-divider);
+}
+
+.convs__row:last-child {
+  border-bottom: 0;
+}
+
+.convs__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: var(--font-body-md);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.convs__meta {
+  flex: 0 0 auto;
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.convs__time {
+  flex: 0 0 auto;
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
 }
 </style>

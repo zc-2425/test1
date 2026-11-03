@@ -5,6 +5,7 @@ import {
   AppButton,
   AppContentCard,
   AppDetailHeader,
+  AppDrawer,
   AppEmptyState,
   AppSelect,
   AppSlider,
@@ -15,11 +16,17 @@ import {
 } from '@/components/ui'
 import type { TabItem } from '@/components/ui'
 import { promptsApi } from '@/api/resources'
+import {
+  getConversation,
+  listConversations,
+  type ConversationDetail,
+  type ConversationDto
+} from '@/api/conversations'
 import { fetchChatStatus, streamChat, type ChatStatus, type ChatUsage } from '@/api/chat'
 import type { PromptDto } from '@/api/types'
 import { useResource } from '@/composables/useResource'
 import { toast } from '@/composables/useToast'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatRelative } from '@/utils/format'
 
 /**
  * 提示词编辑器（原型 07-智能聊天助手.png）。
@@ -48,6 +55,38 @@ const output = ref('')
 const usage = ref<ChatUsage | null>(null)
 let controller: AbortController | null = null
 const chatStatus = ref<ChatStatus | null>(null)
+
+/* ---------------- 历史会话（P1：真实落库的数据） ---------------- */
+const historyOpen = ref(false)
+const historyLoading = ref(false)
+const historyRows = ref<ConversationDto[]>([])
+const historyDetail = ref<ConversationDetail | null>(null)
+
+async function openHistory(): Promise<void> {
+  historyOpen.value = true
+  await loadHistory()
+}
+
+async function loadHistory(): Promise<void> {
+  historyLoading.value = true
+  historyDetail.value = null
+  try {
+    const page = await listConversations({ prompt_id: id, size: 20 })
+    historyRows.value = page.items
+  } catch (cause) {
+    toast('历史加载失败', { tone: 'error', description: String(cause) })
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function openHistoryDetail(conversationId: string): Promise<void> {
+  try {
+    historyDetail.value = await getConversation(conversationId)
+  } catch (cause) {
+    toast('会话加载失败', { tone: 'error', description: String(cause) })
+  }
+}
 
 const modelSettings = reactive({
   model: 'gpt-4o',
@@ -122,6 +161,7 @@ async function runTest(): Promise<void> {
       {
         prompt: content.value,
         input: testInput.value,
+        promptId: id,
         model: modelSettings.model,
         temperature: modelSettings.temperature
       },
@@ -175,6 +215,7 @@ function insertVariable(key: string): void {
           <AppTagChip v-else-if="prompt" :label="prompt.status" tone="success" />
         </template>
         <template #actions>
+          <AppButton variant="secondary" size="sm" icon="mdi-history" @click="openHistory">历史</AppButton>
           <AppButton variant="secondary" size="sm" icon="mdi-play" @click="runTest">
             {{ testing ? '停止' : '运行' }}
           </AppButton>
@@ -314,6 +355,62 @@ function insertVariable(key: string): void {
         </div>
       </AppContentCard>
     </template>
+
+    <AppDrawer
+      v-model="historyOpen"
+      title="历史会话"
+      subtitle="本提示词的真实调用记录（P1 起落库）"
+      :width="640"
+    >
+      <div v-if="!historyDetail" class="history">
+        <p v-if="historyLoading" class="history__hint">加载中…</p>
+        <p v-else-if="!historyRows.length" class="history__hint">
+          还没有调用记录，点右上角「运行」跑一次就会出现在这里。
+        </p>
+        <button
+          v-for="row in historyRows"
+          :key="row.id"
+          type="button"
+          class="history__row"
+          @click="openHistoryDetail(row.id)"
+        >
+          <span class="history__title">{{ row.title || '（无标题会话）' }}</span>
+          <span class="history__meta">
+            {{ row.message_count }} 条 · {{ row.total_tokens }} tokens ·
+            {{ formatRelative(row.updated_at) }}
+          </span>
+        </button>
+      </div>
+
+      <div v-else class="history-detail">
+        <AppButton size="sm" variant="ghost" icon="mdi-arrow-left" @click="historyDetail = null">
+          返回列表
+        </AppButton>
+        <div
+          v-for="message in historyDetail.messages"
+          :key="message.id"
+          class="history-msg"
+          :class="`is-${message.role}`"
+        >
+          <div class="history-msg__head">
+            <span>{{ message.role === 'user' ? '用户' : '助手' }}</span>
+            <span v-if="message.role === 'assistant'" class="history-msg__meta">
+              {{ message.tokens }} tokens · {{ message.latency_ms }} ms · {{ message.mode }}
+            </span>
+          </div>
+          <p class="history-msg__body">{{ message.content }}</p>
+        </div>
+        <p v-if="historyDetail.traces.length" class="history__trace">
+          调用：{{ historyDetail.traces[0].provider }} / {{ historyDetail.traces[0].model }} ·
+          {{ historyDetail.traces[0].status }}
+        </p>
+      </div>
+
+      <template #footer>
+        <AppButton size="sm" variant="ghost" icon="mdi-refresh" @click="loadHistory">刷新</AppButton>
+        <AppButton size="sm" variant="secondary" @click="historyOpen = false">关闭</AppButton>
+      </template>
+    </AppDrawer>
   </div>
 </template>
 
@@ -467,5 +564,85 @@ function insertVariable(key: string): void {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-4);
   max-width: 720px;
+}
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.history__hint {
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
+  padding: var(--spacing-3) 0;
+}
+
+.history__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--spacing-3);
+  border: var(--border-width) solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.history__row:hover {
+  border-color: var(--color-primary-light);
+}
+
+.history__title {
+  font: var(--font-body-md);
+  color: var(--color-text);
+}
+
+.history__meta {
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+}
+
+.history-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.history-msg {
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-3);
+  border: var(--border-width) solid var(--color-divider);
+}
+
+.history-msg.is-user {
+  background: var(--color-surface-low);
+}
+
+.history-msg.is-assistant {
+  background: var(--color-surface);
+}
+
+.history-msg__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
+  margin-bottom: 4px;
+}
+
+.history-msg__body {
+  font: var(--font-body-md);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  line-height: 22px;
+}
+
+.history__trace {
+  font: var(--font-label-sm);
+  color: var(--color-text-tertiary);
 }
 </style>
