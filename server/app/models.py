@@ -398,3 +398,32 @@ class EvalResult(SQLModel, table=True):
     latency_ms: int = 0
     citations: str | None = None
     created_at: datetime = Field(default_factory=_now)
+
+class WorkflowNode(SQLModel, table=True):
+    """画布节点（R4 起真正落库，之前只存在前端内存里）。"""
+
+    __tablename__ = "workflow_nodes"
+
+    id: str = Field(primary_key=True)
+    workflow_id: str = Field(index=True)
+    # start / llm / agent / retrieval / qa / transform / condition / code / http / end
+    type: str
+    name: str = ""
+    x: float = 0
+    y: float = 0
+    # 节点配置 JSON（system / model / knowledge / topK / expression / template ...）
+    config: str = "{}"
+    order: int = 0
+    created_at: datetime = Field(default_factory=_now)
+
+
+class WorkflowEdge(SQLModel, table=True):
+    """画布连线。condition 节点的两条出边用 label = true / false 区分分支。"""
+
+    __tablename__ = "workflow_edges"
+
+    id: str = Field(primary_key=True)
+    workflow_id: str = Field(index=True)
+    source: str
+    target: str
+    label: str = ""

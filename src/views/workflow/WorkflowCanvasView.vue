@@ -12,7 +12,7 @@ import {
   AppTextField
 } from '@/components/ui'
 import { workflowsApi } from '@/api/resources'
-import { runWorkflow, type RunResult } from '@/api/workflows'
+import { getWorkflowGraph, runWorkflow, saveWorkflowGraph, type RunResult } from '@/api/workflows'
 import type { WorkflowDto } from '@/api/types'
 import { useResource } from '@/composables/useResource'
 import { toast } from '@/composables/useToast'
@@ -60,6 +60,7 @@ const offset = reactive({ x: 40, y: 40 })
 
 const runOpen = ref(false)
 const running = ref(false)
+const saving = ref(false)
 const runInput = ref('你们的退款政策是什么？')
 const runResult = ref<RunResult | null>(null)
 
@@ -94,8 +95,45 @@ function seedNodes(count: number): void {
   }))
 }
 
+/**
+ * 打开画布时读库里的图；库里还没有节点才用 node_count 造一条临时链路。
+ * R4 之前这里是纯前端内存，刷新就丢。
+ */
+const graphLoading = ref(false)
+
+async function loadGraph(): Promise<void> {
+  graphLoading.value = true
+  try {
+    const graph = await getWorkflowGraph(workflowId)
+    if (graph.nodes.length) {
+      nodes.value = graph.nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        x: node.x,
+        y: node.y,
+        label: node.name || undefined,
+        config: node.config
+      }))
+      edges.value = graph.edges.map((edge) => ({
+        id: edge.id,
+        from: edge.from,
+        to: edge.to,
+        label: edge.label || undefined
+      }))
+      // 让新建节点从已有 id 之后接着编号，避免撞名
+      nodeSeq = nodes.value.length
+    } else if (workflow.value && !nodes.value.length) {
+      seedNodes(workflow.value.node_count)
+    }
+  } catch (cause) {
+    toast('画布加载失败', { tone: 'error', description: String(cause) })
+  } finally {
+    graphLoading.value = false
+  }
+}
+
 watch(workflow, (value) => {
-  if (value && !nodes.value.length) seedNodes(value.node_count)
+  if (value) void loadGraph()
   if (route.query.run === '1') runOpen.value = true
 })
 
@@ -346,12 +384,30 @@ async function runNow(): Promise<void> {
 }
 
 async function saveCanvas(): Promise<void> {
-  // 画布结构目前只存在前端内存里（后端还没有 nodes 表），这里更新节点数并提示
+  // R4：整图落库（节点配置 + 连线一起），node_count 由后端按实际节点数回写
+  saving.value = true
   try {
-    await workflowsApi.update(workflowId, { node_count: nodes.value.length })
-    toast('已保存', { description: `${nodes.value.length} 个节点 / ${edges.value.length} 条连线` })
+    const result = await saveWorkflowGraph(workflowId, {
+      nodes: nodes.value.map((node) => ({
+        id: node.id,
+        type: node.type,
+        name: node.label ?? '',
+        x: node.x,
+        y: node.y,
+        config: node.config
+      })),
+      edges: edges.value.map((edge) => ({
+        id: edge.id,
+        from: edge.from,
+        to: edge.to,
+        label: edge.label ?? ''
+      }))
+    })
+    toast('已保存', { tone: 'success', description: `${result.nodes} 个节点 / ${result.edges} 条连线` })
   } catch (cause) {
     toast('保存失败', { tone: 'error', description: String(cause) })
+  } finally {
+    saving.value = false
   }
 }
 
@@ -631,7 +687,11 @@ async function publish(): Promise<void> {
               <div class="run-step__body">
                 <div class="run-step__head">
                   <span class="run-step__name">{{ step.name }}</span>
-                  <span class="run-step__meta">{{ step.nodeType }} · {{ step.durationMs }} ms</span>
+                  <span class="run-step__meta">
+              {{ step.nodeType }} · {{ step.durationMs }} ms
+              <template v-if="step.mode">· {{ step.mode === 'real' ? '真实调用' : '模拟' }}</template>
+              <template v-if="step.status !== '成功'">· {{ step.status }}</template>
+            </span>
                 </div>
                 <p v-if="step.output" class="run-step__output">{{ step.output }}</p>
               </div>

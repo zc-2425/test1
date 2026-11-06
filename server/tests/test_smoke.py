@@ -85,17 +85,76 @@ def test_all_resource_lists_are_seeded(client: TestClient) -> None:
         assert resp.json()["total"] == expected, path
 
 
-def test_workflow_run_produces_trace(client: TestClient) -> None:
+def test_workflow_graph_roundtrip(client: TestClient) -> None:
+    """R4：画布图能落库、能读回、连线指向不存在的节点会被拒。"""
+    graph = client.get("/api/workflows/wf-002/graph").json()
+    assert graph["workflowId"] == "wf-002"
+    assert len(graph["nodes"]) >= 2, "种子应已为工作流补齐可执行图"
+    assert graph["nodes"][0]["type"] == "start"
+
+    payload = {
+        "nodes": [
+            {"id": "a", "type": "start", "x": 10, "y": 20, "config": {}},
+            {
+                "id": "b",
+                "type": "llm",
+                "x": 10,
+                "y": 120,
+                "config": {"system": "只回答一个字", "output": "llm_output"},
+            },
+            {"id": "c", "type": "end", "x": 10, "y": 220, "config": {}},
+        ],
+        "edges": [
+            {"id": "e1", "from": "a", "to": "b"},
+            {"id": "e2", "from": "b", "to": "c"},
+        ],
+    }
+    saved = client.put("/api/workflows/wf-002/graph", json=payload)
+    assert saved.status_code == 200, saved.text
+    assert saved.json() == {"nodes": 3, "edges": 2}
+
+    reread = client.get("/api/workflows/wf-002/graph").json()
+    assert [node["id"] for node in reread["nodes"]] == ["a", "b", "c"]
+    assert reread["edges"][0]["from"] == "a"
+    assert client.get("/api/workflows/wf-002").json()["node_count"] == 3
+
+    bad = client.put(
+        "/api/workflows/wf-002/graph",
+        json={
+            "nodes": [{"id": "a", "type": "start", "config": {}}],
+            "edges": [{"id": "e1", "from": "a", "to": "ghost"}],
+        },
+    )
+    assert bad.status_code == 400
+
+
+def test_workflow_run_executes_real_nodes(client: TestClient) -> None:
+    """R4：运行是沿图逐个节点执行，步骤来自真实节点而非 node_count 编造。"""
+    graph = client.get("/api/workflows/wf-001/graph").json()
     resp = client.post("/api/workflows/wf-001/run", json={"input": "订单什么时候到"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["runId"].startswith("run-")
     assert body["status"] == "成功"
-    assert len(body["steps"]) == 8  # wf-001 是 8 节点
+    # 步数与图里的可执行路径一致，且首尾是 start / end
+    assert body["steps"][0]["nodeType"] == "start"
     assert body["steps"][-1]["nodeType"] == "end"
+    assert len(body["steps"]) == len(graph["nodes"])
+    # 每个步骤都有真实输出
+    assert all(step["output"] for step in body["steps"])
     assert body["tokens"]["prompt"] > 0
+    assert body["conversationId"].startswith("conv-")
+
     # 运行后 last_run_at 应被刷新
     assert client.get("/api/workflows/wf-001").json()["last_run_at"] is not None
+
+
+def test_workflow_run_requires_nodes(client: TestClient) -> None:
+    """空图运行返回 400 而不是抛 500。"""
+    client.put("/api/workflows/wf-003/graph", json={"nodes": [], "edges": []})
+    resp = client.post("/api/workflows/wf-003/run", json={"input": "你好"})
+    assert resp.status_code == 400
+    assert "节点" in resp.json()["detail"]
 
 
 def test_knowledge_documents_starts_empty(client: TestClient) -> None:

@@ -344,3 +344,77 @@ def seed_if_empty(session: Session) -> bool:
     )
     session.commit()
     return True
+
+def ensure_workflow_graphs(session: Session) -> int:
+    """给「有工作流但没有节点」的库补齐一条可执行链路。
+
+    幂等：已有节点的 workflow 直接跳过。这样老库升级后画布不会空着，
+    /run 也立刻能跑出真实步骤（而不是 KeyError）。
+    """
+    import json
+
+    from sqlmodel import select as _select
+
+    created = 0
+    workflows = session.exec(_select(models.Workflow)).all()
+    for wf in workflows:
+        existing = session.exec(
+            _select(models.WorkflowNode).where(models.WorkflowNode.workflow_id == wf.id)
+        ).first()
+        if existing is not None:
+            continue
+
+        total = max(2, wf.node_count or 5)
+        # 中间节点按这条序列循环，保证每个工作流都同时有 LLM / 检索 / 问答 / 条件 / 转换
+        middles = ["llm", "retrieval", "qa", "condition", "transform"]
+        types = ["start"] + [
+            middles[i % len(middles)] for i in range(total - 2)
+        ] + ["end"]
+
+        nodes: list[models.WorkflowNode] = []
+        for index, node_type in enumerate(types):
+            if node_type == "llm":
+                config = {
+                    "system": f"你是「{wf.name}」流程里的处理节点，回答要简洁。",
+                    "model": "deepseek-ai/DeepSeek-V4-Flash",
+                    "temperature": 0.3,
+                    "output": f"llm_output_{index}",
+                }
+            elif node_type == "retrieval":
+                config = {"knowledge": "kb-001", "topK": 3, "output": "chunks"}
+            elif node_type == "qa":
+                config = {"question": "{{query}}", "context": "chunks", "output": "answer"}
+            elif node_type == "condition":
+                config = {"expression": "contains:退款", "output": "condition_result"}
+            elif node_type == "transform":
+                config = {"template": "{{last_output}}", "output": "transformed"}
+            else:
+                config = {}
+
+            nodes.append(
+                models.WorkflowNode(
+                    id=f"{wf.id}-n{index + 1}",
+                    workflow_id=wf.id,
+                    type=node_type,
+                    name="",
+                    x=120,
+                    y=40 + index * 104,
+                    config=json.dumps(config, ensure_ascii=False),
+                    order=index,
+                )
+            )
+        session.add_all(nodes)
+
+        for index in range(len(nodes) - 1):
+            session.add(
+                models.WorkflowEdge(
+                    id=f"{wf.id}-e{index + 1}",
+                    workflow_id=wf.id,
+                    source=nodes[index].id,
+                    target=nodes[index + 1].id,
+                )
+            )
+        created += 1
+
+    session.commit()
+    return created

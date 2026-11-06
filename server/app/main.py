@@ -1,4 +1,4 @@
-﻿"""FastAPI 应用入口。
+"""FastAPI 应用入口。
 
 启动流程：建表 → 库为空则灌种子数据 → 挂载路由。
 本地开发：uvicorn app.main:app --reload --port 5274
@@ -43,6 +43,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             seeded = seed_if_empty(session)
         if seeded:
             print("[seed] 已灌入初始数据")
+    # 老库升级 / 新库灌种子之后：没有节点的工作流补一条可执行链路（幂等）
+    from app.seed import ensure_workflow_graphs
+
+    with Session(engine) as session:
+        graphs = ensure_workflow_graphs(session)
+    if graphs:
+        print(f"[seed] 为 {graphs} 个工作流补齐了可执行图")
     yield
 
 
