@@ -291,6 +291,17 @@ export const shellRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: 'prompt/:id/eval',
+    name: 'prompt-eval',
+    component: () => import('@/views/prompt/PromptEvalView.vue'),
+    meta: {
+      title: '提示词评测',
+      module: '提示词工程',
+      navKey: 'prompt',
+      phase: 'P3'
+    }
+  },
+  {
     path: 'prompt/:id/edit',
     name: 'prompt-edit',
     component: () => import('@/views/prompt/PromptEditView.vue'),

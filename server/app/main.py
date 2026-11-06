@@ -16,6 +16,7 @@ from app.api.v1 import (
     auth,
     chat,
     conversations,
+    eval_ops,
     knowledge_ops,
     llmops,
     provider_ops,
@@ -70,6 +71,7 @@ api_router.include_router(workflow_ops.router)
 api_router.include_router(chat.router)
 api_router.include_router(provider_ops.router)
 api_router.include_router(conversations.router)
+api_router.include_router(eval_ops.router)
 
 app.include_router(api_router)
 

@@ -447,3 +447,77 @@ def test_chat_with_unknown_kb_still_works(client: TestClient) -> None:
         assert response.status_code == 200
         _text, result = _collect_events("".join(response.iter_text()))
     assert result["citations"] == []
+
+def test_eval_case_crud(client: TestClient) -> None:
+    created = client.post(
+        "/api/eval/cases",
+        json={
+            "question": "退款多久到账",
+            "expected": "3 个工作日\n原路返回",
+            "prompt_id": "pmt-eval",
+        },
+    )
+    assert created.status_code == 201, created.text
+    case = created.json()
+    assert case["id"].startswith("case-")
+
+    listed = client.get("/api/eval/cases", params={"prompt_id": "pmt-eval"}).json()
+    assert [item["id"] for item in listed] == [case["id"]]
+
+    patched = client.patch(
+        f"/api/eval/cases/{case['id']}", json={"expected": "3 个工作日"}
+    ).json()
+    assert patched["expected"] == "3 个工作日"
+
+    assert client.delete(f"/api/eval/cases/{case['id']}").status_code == 204
+    assert client.get("/api/eval/cases", params={"prompt_id": "pmt-eval"}).json() == []
+
+
+def test_eval_run_scores_by_hit_points(client: TestClient) -> None:
+    """判分靠期望要点命中率：mock 回答里有的要点应命中，没有的记为 missing。"""
+    hit = client.post(
+        "/api/eval/cases",
+        json={
+            "question": "怎么做",
+            "expected": "先确认需求边界\n结合知识库给出可溯源结论",
+            "prompt_id": "pmt-eval-run",
+        },
+    ).json()
+    miss = client.post(
+        "/api/eval/cases",
+        json={
+            "question": "第二个问题",
+            "expected": "一个绝对不会出现在回答里的要点",
+            "prompt_id": "pmt-eval-run",
+        },
+    ).json()
+
+    response = client.post(
+        "/api/eval/runs",
+        json={"prompt_id": "pmt-eval-run", "prompt": "你是助手", "threshold": 0.6},
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    run = body["run"]
+    assert run["total"] == 2
+    assert run["passed"] == 1
+    assert 0 < run["avg_score"] <= 1
+    assert run["mode"] == "mock"
+
+    by_case = {item["case_id"]: item for item in body["results"]}
+    assert by_case[hit["id"]]["passed"] is True
+    assert by_case[hit["id"]]["missing"] == ""
+    assert by_case[miss["id"]]["passed"] is False
+    assert "绝对不会出现" in by_case[miss["id"]]["missing"]
+
+    detail = client.get(f"/api/eval/runs/{run['id']}").json()
+    assert len(detail["results"]) == 2
+    runs = client.get("/api/eval/runs", params={"prompt_id": "pmt-eval-run"}).json()
+    assert runs[0]["id"] == run["id"]
+
+
+def test_eval_run_requires_cases(client: TestClient) -> None:
+    response = client.post(
+        "/api/eval/runs", json={"prompt_id": "pmt-no-cases", "prompt": "x"}
+    )
+    assert response.status_code == 400

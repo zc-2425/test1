@@ -342,3 +342,59 @@ class ChunkEmbedding(SQLModel, table=True):
     # float32 小端字节；入库前已 L2 归一化，检索用点积即余弦
     vector: bytes
     created_at: datetime = Field(default_factory=_now)
+
+class EvalCase(SQLModel, table=True):
+    """评测用例：一个固定问题 + 一组「期望要点」。
+
+    判分不靠模型主观打分，而看期望要点被命中了几个 —— 可复现、能对比。
+    """
+
+    __tablename__ = "eval_cases"
+
+    id: str = Field(primary_key=True)
+    prompt_id: str | None = Field(default=None, index=True)
+    kb_id: str | None = Field(default=None, index=True)
+    question: str
+    # 期望要点：一行一个（也容忍 ; | 、 分隔）
+    expected: str = ""
+    enabled: bool = True
+    created_at: datetime = Field(default_factory=_now)
+
+
+class EvalRun(SQLModel, table=True):
+    """一次评测运行。改完提示词再跑一次，就是最朴素的回归对比。"""
+
+    __tablename__ = "eval_runs"
+
+    id: str = Field(primary_key=True)
+    prompt_id: str | None = Field(default=None, index=True)
+    kb_id: str | None = None
+    model: str = ""
+    mode: str = "mock"
+    total: int = 0
+    passed: int = 0
+    avg_score: float = 0.0
+    threshold: float = 0.6
+    took_ms: int = 0
+    note: str = ""
+    created_at: datetime = Field(default_factory=_now)
+
+
+class EvalResult(SQLModel, table=True):
+    """单个用例的结果。missing 记录没命中的要点，直接告诉人「差在哪」。"""
+
+    __tablename__ = "eval_results"
+
+    id: str = Field(primary_key=True)
+    run_id: str = Field(index=True)
+    case_id: str = ""
+    question: str = ""
+    answer: str = ""
+    matched: int = 0
+    total_points: int = 0
+    score: float = 0.0
+    passed: bool = False
+    missing: str = ""
+    latency_ms: int = 0
+    citations: str | None = None
+    created_at: datetime = Field(default_factory=_now)

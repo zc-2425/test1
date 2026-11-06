@@ -238,6 +238,9 @@ function insertVariable(key: string): void {
           <AppTagChip v-else-if="prompt" :label="prompt.status" tone="success" />
         </template>
         <template #actions>
+          <AppButton variant="secondary" size="sm" icon="mdi-clipboard-check-outline" @click="router.push(`/prompt/${id}/eval`)">
+            评测
+          </AppButton>
           <AppButton variant="secondary" size="sm" icon="mdi-history" @click="openHistory">历史</AppButton>
           <AppButton variant="secondary" size="sm" icon="mdi-play" @click="runTest">
             {{ testing ? '停止' : '运行' }}
