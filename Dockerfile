@@ -5,9 +5,9 @@ WORKDIR /app
 
 # 依赖清单先拷，装依赖这层可缓存
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-# 版本必须和本地一致：pnpm-workspace.yaml 里用的是 pnpm 11 的 allowBuilds 语法，
-# pnpm 9 读不懂它，会直接报「packages field missing or empty」
-RUN corepack enable && corepack prepare pnpm@11.25.0 --activate \
+# pnpm 10+ 的 store 用 SQLite 建索引，在容器 overlay 文件系统上会报 disk I/O error；
+# pnpm 9 没有这个索引，最稳。pnpm 9 额外要求 workspace 里必须有 packages 字段。
+RUN corepack enable && corepack prepare pnpm@9 --activate \
     && pnpm install --frozen-lockfile
 
 COPY . .
