@@ -5,9 +5,9 @@ WORKDIR /app
 
 # 依赖清单先拷，装依赖这层可缓存
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-# pnpm 10+ 的 store 用 SQLite 建索引，在容器 overlay 文件系统上会报 disk I/O error；
-# pnpm 9 没有这个索引，最稳。pnpm 9 额外要求 workspace 里必须有 packages 字段。
-RUN corepack enable && corepack prepare pnpm@9 --activate \
+# 不用 corepack：它固定从 npmjs 官方源下载 pnpm，国内容器里超时就抛 exit 255（无细节）
+# 直接用 npm 从国内源装固定版本，pnpm 9 没有 SQLite store，避开 overlay 上的 disk I/O error
+RUN npm i -g pnpm@9.15.9 --registry=https://registry.npmmirror.com \
     && pnpm install --frozen-lockfile
 
 COPY . .
