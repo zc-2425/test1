@@ -1,11 +1,13 @@
 # 前端镜像：多阶段构建（Node 负责打包，Nginx 负责托管）
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 # 依赖清单先拷，装依赖这层可缓存
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN corepack enable && corepack prepare pnpm@9 --activate \
+# 版本必须和本地一致：pnpm-workspace.yaml 里用的是 pnpm 11 的 allowBuilds 语法，
+# pnpm 9 读不懂它，会直接报「packages field missing or empty」
+RUN corepack enable && corepack prepare pnpm@11.25.0 --activate \
     && pnpm install --frozen-lockfile
 
 COPY . .
