@@ -1,0 +1,13 @@
+# 前端镜像构建上下文瘦身：node_modules 上百 MB，绝不能进上下文
+node_modules
+.pnpm-store
+dist
+.git
+.gitattributes
+_ref
+docs
+server
+__MACOSX
+*.md
+.vscode
+.idea

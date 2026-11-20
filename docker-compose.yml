@@ -1,0 +1,26 @@
+# 线上部署：一条命令拉起前端(Nginx) + 后端(uvicorn)
+# CentOS7 装的是 docker-compose 1.29，version 字段必须写，否则按 v1 格式解析会报错
+version: "3.8"
+
+services:
+  backend:
+    build: ./server
+    container_name: agent-backend
+    env_file:
+      - ./server/.env
+    volumes:
+      # SQLite 与上传文件持久化：容器重建不丢数据
+      - ./server/data:/app/data
+      - ./server/uploads:/app/uploads
+    expose:
+      - "5274"
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    container_name: agent-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
