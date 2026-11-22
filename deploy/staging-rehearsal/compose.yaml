@@ -1,0 +1,21 @@
+services:
+  app:
+    image: ghcr.io/zc-2425/test1-fastapi@sha256:6fc68a0f442d157a74bf9ec12559180fc265204a7dda3bf7907bedce61c73911
+    platform: linux/amd64
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/healthz', timeout=1).close()"]
+      interval: 2s
+      timeout: 2s
+      start_period: 5s
+      retries: 10
+
+  caddy:
+    image: docker.io/library/caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+    platform: linux/amd64
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
