@@ -21,9 +21,6 @@ jobs:
     env:
       ALIYUN_REGION: cn-beijing
       ALIYUN_OIDC_AUDIENCE: sts.aliyuncs.com
-      ALIYUN_OIDC_PROVIDER_ARN: ${{ vars.ALIYUN_OIDC_PROVIDER_ARN }}
-      ALIYUN_PREFLIGHT_ROLE_ARN: ${{ vars.ALIYUN_PREFLIGHT_ROLE_ARN }}
-      ALIYUN_ECS_INSTANCE_ID: ${{ vars.ALIYUN_ECS_INSTANCE_ID }}
       ALIYUN_SESSION: easycicd-${{ github.run_id }}
     steps:
       - name: Inspect GitHub OIDC subject
@@ -60,6 +57,10 @@ jobs:
 
       - name: Validate Alibaba Cloud settings
         if: ${{ !inputs.inspect_subject_only }}
+        env:
+          ALIYUN_OIDC_PROVIDER_ARN: ${{ secrets.ALIYUN_OIDC_PROVIDER_ARN }}
+          ALIYUN_PREFLIGHT_ROLE_ARN: ${{ secrets.ALIYUN_PREFLIGHT_ROLE_ARN }}
+          ALIYUN_ECS_INSTANCE_ID: ${{ secrets.ALIYUN_ECS_INSTANCE_ID }}
         shell: bash
         run: |
           role_pattern='^acs:ram::([0-9]+):role/[a-zA-Z0-9-]+$'
@@ -69,6 +70,7 @@ jobs:
             exit 1
           fi
           account="${BASH_REMATCH[1]}"
+          printf '::add-mask::%s\n' "$account"
           if [[ ! "$ALIYUN_OIDC_PROVIDER_ARN" =~ $provider_pattern || "${BASH_REMATCH[1]}" != "$account" ]]; then
             echo 'Set ALIYUN_OIDC_PROVIDER_ARN to a provider ARN in the RAM role account.' >&2
             exit 1
@@ -88,13 +90,16 @@ jobs:
         if: ${{ !inputs.inspect_subject_only }}
         uses: aliyun/configure-aliyun-credentials-action@1e5248c8d5d93a8781ac344a68e19a43341e79e6 # v1.1.0
         with:
-          oidc-provider-arn: ${{ env.ALIYUN_OIDC_PROVIDER_ARN }}
-          role-to-assume: ${{ env.ALIYUN_PREFLIGHT_ROLE_ARN }}
+          oidc-provider-arn: ${{ secrets.ALIYUN_OIDC_PROVIDER_ARN }}
+          role-to-assume: ${{ secrets.ALIYUN_PREFLIGHT_ROLE_ARN }}
           role-session-name: ${{ env.ALIYUN_SESSION }}
           audience: ${{ env.ALIYUN_OIDC_AUDIENCE }}
 
       - name: Verify caller, instance and Cloud Assistant heartbeat
         if: ${{ !inputs.inspect_subject_only }}
+        env:
+          ALIYUN_PREFLIGHT_ROLE_ARN: ${{ secrets.ALIYUN_PREFLIGHT_ROLE_ARN }}
+          ALIYUN_ECS_INSTANCE_ID: ${{ secrets.ALIYUN_ECS_INSTANCE_ID }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -106,7 +111,12 @@ jobs:
           instance_id = os.environ['ALIYUN_ECS_INSTANCE_ID']
           role = os.environ['ALIYUN_PREFLIGHT_ROLE_ARN']
           expected_account = role.split(':')[3]
-          expected_caller = role + '/' + os.environ['ALIYUN_SESSION']
+          role_name = role.split('/', 1)[1]
+          session = os.environ['ALIYUN_SESSION']
+          expected_callers = {
+              f'acs:{service}::{expected_account}:assumed-role/{role_name}/{session}'
+              for service in ('ram', 'sts')
+          }
 
           def query(product, operation, *args):
               try:
@@ -118,12 +128,18 @@ jobs:
                   if not isinstance(result, dict) or 'Code' in result:
                       raise ValueError('Unexpected API response')
                   return result
+              except subprocess.CalledProcessError as error:
+                  if any(marker in (error.stderr or '') for marker in ('Forbidden', 'AccessDenied', 'NoPermission')):
+                      raise SystemExit(f'{operation} was denied by Alibaba Cloud.') from None
+                  raise SystemExit(f'{operation} failed in the CLI.') from None
               except (OSError, subprocess.SubprocessError, ValueError):
                   raise SystemExit(f'{operation} failed. Check access, network, and CLI setup.') from None
 
           identity = query('sts', 'GetCallerIdentity')
-          if str(identity.get('AccountId')) != expected_account or identity.get('Arn') != expected_caller:
-              raise SystemExit('Unexpected RAM caller identity.')
+          if identity.get('IdentityType') != 'AssumedRoleUser' or str(identity.get('AccountId')) != expected_account:
+              raise SystemExit('Unexpected caller type or Alibaba Cloud account.')
+          if identity.get('Arn') not in expected_callers:
+              raise SystemExit('Unexpected assumed role or session.')
           print('RAM caller matches the configured role and session.', flush=True)
 
           def find_instance(entries):
