@@ -1,0 +1,147 @@
+name: Alibaba Cloud ECS OIDC preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      inspect_subject_only:
+        description: Inspect the GitHub OIDC subject before configuring RAM
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  preflight:
+    if: github.repository == 'zc-2425/test1' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: staging
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    env:
+      ALIYUN_REGION: cn-beijing
+      ALIYUN_OIDC_AUDIENCE: sts.aliyuncs.com
+      ALIYUN_OIDC_PROVIDER_ARN: ${{ vars.ALIYUN_OIDC_PROVIDER_ARN }}
+      ALIYUN_PREFLIGHT_ROLE_ARN: ${{ vars.ALIYUN_PREFLIGHT_ROLE_ARN }}
+      ALIYUN_ECS_INSTANCE_ID: ${{ vars.ALIYUN_ECS_INSTANCE_ID }}
+      ALIYUN_SESSION: easycicd-${{ github.run_id }}
+    steps:
+      - name: Inspect GitHub OIDC subject
+        if: inputs.inspect_subject_only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+
+          audience = os.environ['ALIYUN_OIDC_AUDIENCE']
+          url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&' + urlencode({'audience': audience})
+          request = Request(url, headers={'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
+          try:
+              with urlopen(request, timeout=10) as response:
+                  payload = json.load(response)['value'].split('.')[1]
+              claims = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
+          except (OSError, ValueError, KeyError, IndexError):
+              raise SystemExit('Unable to read the GitHub OIDC claims.') from None
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          owner, name = repository.split('/')
+          immutable = f"{owner}@{os.environ['GITHUB_REPOSITORY_OWNER_ID']}/{name}@{os.environ['GITHUB_REPOSITORY_ID']}"
+          subjects = {f'repo:{repo}:environment:staging' for repo in (repository, immutable)}
+          if (claims.get('iss') != 'https://token.actions.githubusercontent.com'
+                  or claims.get('aud') != audience or claims.get('repository') != repository
+                  or claims.get('ref') != 'refs/heads/main' or claims.get('sub') not in subjects):
+              raise SystemExit('Unexpected GitHub OIDC claims. Review the subject configuration before enabling RAM.')
+          print('OIDC subject:', claims['sub'])
+          PY
+
+      - name: Validate Alibaba Cloud settings
+        if: ${{ !inputs.inspect_subject_only }}
+        shell: bash
+        run: |
+          role_pattern='^acs:ram::([0-9]+):role/[a-zA-Z0-9-]+$'
+          provider_pattern='^acs:ram::([0-9]+):oidc-provider/[a-zA-Z0-9-]+$'
+          if [[ ! "$ALIYUN_PREFLIGHT_ROLE_ARN" =~ $role_pattern ]]; then
+            echo 'Set ALIYUN_PREFLIGHT_ROLE_ARN to the preflight RAM role ARN.' >&2
+            exit 1
+          fi
+          account="${BASH_REMATCH[1]}"
+          if [[ ! "$ALIYUN_OIDC_PROVIDER_ARN" =~ $provider_pattern || "${BASH_REMATCH[1]}" != "$account" ]]; then
+            echo 'Set ALIYUN_OIDC_PROVIDER_ARN to a provider ARN in the RAM role account.' >&2
+            exit 1
+          fi
+          if [[ ! "$ALIYUN_ECS_INSTANCE_ID" =~ ^i-[a-zA-Z0-9]+$ ]]; then
+            echo 'Set ALIYUN_ECS_INSTANCE_ID to the authorized test instance ID.' >&2
+            exit 1
+          fi
+
+      - name: Set up Alibaba Cloud CLI
+        if: ${{ !inputs.inspect_subject_only }}
+        uses: aliyun/setup-aliyun-cli-action@09a5f86915bb556e27bf050e9a5e339aeb073df5 # v1
+        with:
+          version: '3.5.3'
+
+      - name: Obtain temporary RAM credentials
+        if: ${{ !inputs.inspect_subject_only }}
+        uses: aliyun/configure-aliyun-credentials-action@1e5248c8d5d93a8781ac344a68e19a43341e79e6 # v1.1.0
+        with:
+          oidc-provider-arn: ${{ env.ALIYUN_OIDC_PROVIDER_ARN }}
+          role-to-assume: ${{ env.ALIYUN_PREFLIGHT_ROLE_ARN }}
+          role-session-name: ${{ env.ALIYUN_SESSION }}
+          audience: ${{ env.ALIYUN_OIDC_AUDIENCE }}
+
+      - name: Verify caller, instance and Cloud Assistant heartbeat
+        if: ${{ !inputs.inspect_subject_only }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          region = os.environ['ALIYUN_REGION']
+          instance_id = os.environ['ALIYUN_ECS_INSTANCE_ID']
+          role = os.environ['ALIYUN_PREFLIGHT_ROLE_ARN']
+          expected_account = role.split(':')[3]
+          expected_caller = role + '/' + os.environ['ALIYUN_SESSION']
+
+          def query(product, operation, *args):
+              try:
+                  response = subprocess.run(
+                      ['aliyun', product, operation, '--region', region, '--secure', *args],
+                      capture_output=True, text=True, check=True, timeout=20,
+                  )
+                  result = json.loads(response.stdout)
+                  if not isinstance(result, dict) or 'Code' in result:
+                      raise ValueError('Unexpected API response')
+                  return result
+              except (OSError, subprocess.SubprocessError, ValueError):
+                  raise SystemExit(f'{operation} failed. Check access, network, and CLI setup.') from None
+
+          identity = query('sts', 'GetCallerIdentity')
+          if str(identity.get('AccountId')) != expected_account or identity.get('Arn') != expected_caller:
+              raise SystemExit('Unexpected RAM caller identity.')
+          print('RAM caller matches the configured role and session.', flush=True)
+
+          def find_instance(entries):
+              matches = [entry for entry in entries if entry.get('InstanceId') == instance_id]
+              if len(matches) != 1:
+                  raise SystemExit('Expected one record for the authorized ECS instance.')
+              return matches[0]
+
+          inventory = query('ecs', 'DescribeInstances', '--RegionId', region, '--InstanceIds', json.dumps([instance_id]))
+          instance = find_instance(inventory.get('Instances', {}).get('Instance', []))
+          if instance.get('Status') != 'Running':
+              raise SystemExit('ECS instance is not running.')
+          print('ECS instance is running.', flush=True)
+
+          response = query('ecs', 'DescribeCloudAssistantStatus', '--RegionId', region, '--InstanceId.1', instance_id)
+          records = response.get('InstanceCloudAssistantStatusSet', {}).get('InstanceCloudAssistantStatus', [])
+          assistant = find_instance(records)
+          if str(assistant.get('CloudAssistantStatus')).lower() != 'true':
+              raise SystemExit('Cloud Assistant has no recent heartbeat.')
+          print('Cloud Assistant reports a recent heartbeat.')
+          PY
