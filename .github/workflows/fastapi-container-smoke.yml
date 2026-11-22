@@ -1,0 +1,61 @@
+name: FastAPI container smoke test
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  smoke_test:
+    name: Verify the published image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      IMAGE: ghcr.io/zc-2425/test1-fastapi@sha256:6fc68a0f442d157a74bf9ec12559180fc265204a7dda3bf7907bedce61c73911
+      CONTAINER: easycicd-fastapi-smoke
+
+    steps:
+      - name: Pull the exact image and start the container
+        run: |
+          docker pull --platform linux/amd64 "$IMAGE"
+          docker run --detach --pull never --name "$CONTAINER" \
+            --publish 127.0.0.1:18000:8000 "$IMAGE"
+
+      - name: Verify HTTP 200 and the health response
+        run: |
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+          status=000
+          for attempt in {1..25}; do
+            status="$(curl --silent --max-time 2 --output "$body" --write-out '%{http_code}' \
+              http://127.0.0.1:18000/healthz)" || status=000
+            if [[ "$status" == 200 ]]; then
+              break
+            fi
+            sleep 1
+          done
+
+          printf '/healthz returned HTTP %s\n' "$status"
+          if [[ "$status" != 200 ]]; then
+            echo '::error::Expected HTTP 200 from /healthz'
+            exit 1
+          fi
+
+          python3 - "$body" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          response = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if response != {"status": "ok"}:
+              sys.exit(f"Unexpected health response: {response!r}")
+          print("Response body:", json.dumps(response, separators=(",", ":")))
+          PY
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs "$CONTAINER" || true
+
+      - name: Remove the test container
+        if: always()
+        run: docker rm --force "$CONTAINER" || true
