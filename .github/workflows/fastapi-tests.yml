@@ -39,6 +39,8 @@ jobs:
   publish_image:
     name: Publish FastAPI image to GHCR
     needs: pytest
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'zc-2425/test1'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -64,5 +66,192 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-      - name: Push image
-        run: docker push "$IMAGE"
+      - name: Push image and record its digest
+        id: push
+        shell: bash
+        run: |
+          log=$(mktemp)
+          trap 'rm -f "$log"' EXIT
+          docker push "$IMAGE" | tee "$log"
+          mapfile -t digests < <(awk '$2 == "digest:" && $4 == "size:" {print $3}' "$log")
+          if [[ ${#digests[@]} -ne 1 || ! ${digests[0]} =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo 'Expected exactly one digest in the successful push output.' >&2
+            exit 1
+          fi
+          printf 'digest=%s\n' "${digests[0]}" >> "$GITHUB_OUTPUT"
+
+  deploy_staging:
+    needs: publish_image
+    concurrency:
+      group: test1-aliyun-staging-deploy
+      cancel-in-progress: false
+    if: success() && github.event_name == 'push' && github.repository == 'zc-2425/test1' && github.ref == 'refs/heads/main' && vars.ALIYUN_AUTO_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: staging-auto
+    permissions:
+      contents: read
+      id-token: write
+    timeout-minutes: 13
+    env:
+      ALIYUN_REGION: cn-beijing
+      ALIYUN_SESSION: easycicd-auto-${{ github.run_id }}
+
+    steps:
+      - name: Validate staging settings
+        env:
+          PROVIDER_ARN: ${{ secrets.ALIYUN_OIDC_PROVIDER_ARN }}
+          DEPLOY_ROLE: ${{ secrets.ALIYUN_STAGING_ROLE_ARN }}
+          INSTANCE_ID: ${{ secrets.ALIYUN_ECS_INSTANCE_ID }}
+          COMMAND_ID: ${{ secrets.ALIYUN_STAGING_COMMAND_ID }}
+        shell: bash
+        run: |
+          role_pattern='^acs:ram::([0-9]+):role/[a-zA-Z0-9-]+$'
+          provider_pattern='^acs:ram::([0-9]+):oidc-provider/[a-zA-Z0-9-]+$'
+          if [[ ! "$DEPLOY_ROLE" =~ $role_pattern ]]; then
+            echo 'Set ALIYUN_STAGING_ROLE_ARN to the dedicated deployment role.' >&2
+            exit 1
+          fi
+          account="${BASH_REMATCH[1]}"
+          printf '::add-mask::%s\n' "$account"
+          if [[ ! "$PROVIDER_ARN" =~ $provider_pattern || "${BASH_REMATCH[1]}" != "$account" ]]; then
+            echo 'Set ALIYUN_OIDC_PROVIDER_ARN to a provider in the deployment account.' >&2
+            exit 1
+          fi
+          if [[ ! "$INSTANCE_ID" =~ ^i-[a-zA-Z0-9]+$ || ! "$COMMAND_ID" =~ ^c-[a-zA-Z0-9]+$ ]]; then
+            echo 'Set the test instance ID and the registered staging command ID.' >&2
+            exit 1
+          fi
+
+      - name: Set up Alibaba Cloud CLI
+        uses: aliyun/setup-aliyun-cli-action@09a5f86915bb556e27bf050e9a5e339aeb073df5 # v1
+        with:
+          version: '3.5.3'
+
+      - name: Obtain temporary deployment credentials
+        uses: aliyun/configure-aliyun-credentials-action@1e5248c8d5d93a8781ac344a68e19a43341e79e6 # v1.1.0
+        with:
+          oidc-provider-arn: ${{ secrets.ALIYUN_OIDC_PROVIDER_ARN }}
+          role-to-assume: ${{ secrets.ALIYUN_STAGING_ROLE_ARN }}
+          role-session-name: ${{ env.ALIYUN_SESSION }}
+          audience: sts.aliyuncs.com
+
+      - name: Deploy the published digest and verify the result
+        env:
+          PUBLISHED_DIGEST: ${{ needs.publish_image.outputs.digest }}
+          GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_ROLE: ${{ secrets.ALIYUN_STAGING_ROLE_ARN }}
+          INSTANCE_ID: ${{ secrets.ALIYUN_ECS_INSTANCE_ID }}
+          COMMAND_ID: ${{ secrets.ALIYUN_STAGING_COMMAND_ID }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import time
+          from urllib.request import Request, urlopen
+
+          region = os.environ['ALIYUN_REGION']
+          role = os.environ['DEPLOY_ROLE']
+          account = role.split(':')[3]
+          role_name = role.split('/', 1)[1]
+          session = os.environ['ALIYUN_SESSION']
+          instance_id = os.environ['INSTANCE_ID']
+          command_id = os.environ['COMMAND_ID']
+          client_token = session
+          digest = os.environ['PUBLISHED_DIGEST']
+          source = os.environ['GITHUB_SHA']
+          if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest) or not re.fullmatch(r'[0-9a-f]{40}', source):
+              raise SystemExit('Expected a full published digest and commit SHA.')
+
+          def request(service, operation, *args):
+              try:
+                  response = subprocess.run(
+                      ['aliyun', service, operation, '--region', region, '--secure',
+                       '--retry-count', '0', '--connect-timeout', '5', '--read-timeout', '10', *args],
+                      capture_output=True, text=True, check=True, timeout=15,
+                  )
+                  result = json.loads(response.stdout)
+                  if not isinstance(result, dict) or 'Code' in result:
+                      raise ValueError('Unexpected response')
+                  return result
+              except subprocess.CalledProcessError as error:
+                  if re.search(r'Forbidden|AccessDenied|NoPermission', error.stderr or '', re.I):
+                      raise SystemExit(f'{operation} was denied by Alibaba Cloud.') from None
+                  raise SystemExit(f'{operation} failed in the Alibaba Cloud CLI.') from None
+              except (OSError, subprocess.SubprocessError, ValueError):
+                  raise SystemExit(f'{operation} did not return a usable response.') from None
+
+          identity = request('sts', 'GetCallerIdentity')
+          expected_arns = {
+              f'acs:{service}::{account}:assumed-role/{role_name}/{session}'
+              for service in ('ram', 'sts')
+          }
+          if (identity.get('IdentityType') != 'AssumedRoleUser' or
+                  str(identity.get('AccountId')) != account or identity.get('Arn') not in expected_arns):
+              raise SystemExit('Unexpected staging RAM identity.')
+
+          target = ('--RegionId', region, '--CommandId', command_id)
+          result_filters = (*target, '--InstanceId', instance_id, '--ContentEncoding', 'PlainText')
+          # Verify result-read access before making any changes to the host.
+          access = request('ecs', 'DescribeInvocationResults', *result_filters, '--MaxResults', '1')
+          if not isinstance(access.get('Invocation'), dict):
+              raise SystemExit('Could not verify access to Cloud Assistant results.')
+          branch = Request('https://api.github.com/repos/zc-2425/test1/git/ref/heads/main', headers={
+              'Authorization': 'Bearer ' + os.environ['GITHUB_READ_TOKEN'],
+              'Accept': 'application/vnd.github+json',
+          })
+          try:
+              with urlopen(branch, timeout=10) as response:
+                  current = json.load(response)['object']['sha']
+          except (OSError, ValueError, KeyError):
+              raise SystemExit('Unable to verify the current main commit.') from None
+          if current != source:
+              print('A newer main commit exists. Skipping deployment.')
+              raise SystemExit(0)
+
+          invocation = request(
+              'ecs', 'InvokeCommand', *target, '--InstanceId.1', instance_id,
+              '--Username', 'root', '--RepeatMode', 'Once', '--ClientToken', client_token,
+              '--Tag.1.Key', 'EasyCICDImageDigest', '--Tag.1.Value', digest,
+              '--Tag.2.Key', 'EasyCICDSourceSHA', '--Tag.2.Value', source,
+          )
+          invoke_id = invocation.get('InvokeId', '')
+          if not isinstance(invoke_id, str) or not re.fullmatch(r't-[a-zA-Z0-9]+', invoke_id):
+              raise SystemExit('Missing invocation ID. Check Cloud Assistant history before retrying.')
+          print(f'Cloud Assistant invocation {invoke_id}', flush=True)
+
+          pending = {'Pending', 'Scheduled', 'Running', 'Stopping'}
+          expected_output = {
+              'listen=127.0.0.1:18080,127.0.0.1:18081',
+              'http=200', 'proxy=caddy', 'body={"status":"ok"}', 'staging=running',
+              f'digest={digest}', f'source_sha={source}',
+          }
+          deadline = time.monotonic() + 550
+          while time.monotonic() < deadline:
+              result = request('ecs', 'DescribeInvocationResults', *result_filters, '--InvokeId', invoke_id)
+              rows = result.get('Invocation', {}).get('InvocationResults', {}).get('InvocationResult', [])
+              if rows:
+                  if len(rows) != 1:
+                      raise SystemExit('Unexpected number of Cloud Assistant results.')
+                  row = rows[0]
+                  if (row.get('InvokeId'), row.get('CommandId'), row.get('InstanceId')) != (invoke_id, command_id, instance_id):
+                      raise SystemExit('Cloud Assistant returned a result for a different target.')
+                  state = row.get('InvocationStatus')
+                  if state not in pending:
+                      lines = set(str(row.get('Output', '')).splitlines())
+                      if state != 'Success' or row.get('ExitCode') != 0:
+                          for line in sorted(lines):
+                              if re.fullmatch(r'failure=[a-z-]+|rollback=(?:verified|incomplete)', line):
+                                  print(line)
+                          raise SystemExit('Cloud Assistant did not complete the staging deployment successfully.')
+                      if row.get('Dropped', 0) != 0 or not expected_output <= lines:
+                          raise SystemExit('Missing required loopback and Caddy verification output.')
+                      for line in sorted(expected_output):
+                          print(line)
+                      break
+              time.sleep(5)
+          else:
+              raise SystemExit('Timed out waiting for Cloud Assistant. Check the invocation before retrying.')
+          PY
