@@ -7,7 +7,6 @@ WORKDIR /srv/app
 COPY requirements.txt ./
 RUN python -m pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
-RUN mv app/main.py app/main.rollback-drill
 
 USER 10001:10001
 EXPOSE 8000
