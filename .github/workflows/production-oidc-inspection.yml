@@ -1,0 +1,50 @@
+name: Inspect production OIDC subject
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  inspect:
+    if: github.repository == 'zc-2425/test1' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    environment:
+      name: production
+      deployment: false
+    permissions:
+      id-token: write
+    steps:
+      - name: Read the production identity from GitHub
+        shell: python
+        run: |
+          import base64
+          import json
+          import os
+          from urllib.parse import parse_qsl, urlencode, urlsplit
+          from urllib.request import Request, urlopen
+
+          audience = "sts.aliyuncs.com"
+          endpoint = urlsplit(os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"])
+          if endpoint.scheme != "https":
+              raise SystemExit("Expected an HTTPS GitHub Actions endpoint")
+          query = [(k, v) for k, v in parse_qsl(endpoint.query) if k != "audience"]
+          url = endpoint._replace(query=urlencode(query + [("audience", audience)])).geturl()
+          request = Request(url)
+          request.add_unredirected_header("Authorization", "Bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"])
+          with urlopen(request, timeout=15) as response:
+              payload = json.load(response)["value"].split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+          expected = {
+              "iss": "https://token.actions.githubusercontent.com",
+              "aud": audience,
+              "repository": "zc-2425/test1",
+              "environment": "production",
+              "ref": "refs/heads/main",
+              "sub": "repo:zc-2425@317756581/test1@1465345349:environment:production",
+          }
+          for key in ("iss", "aud", "ref", "sub"):
+              print(f"oidc.{key}={json.dumps(claims.get(key))}")
+          if any(claims.get(key) != value for key, value in expected.items()):
+              raise SystemExit("Issued claims differ from the expected production identity")
